@@ -2,9 +2,10 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"github.com/disintegration/gift"
 	"github.com/go-git/go-billy/v5"
+	json "github.com/json-iterator/go"
 	"github.com/pixiv/go-libjpeg/jpeg"
 	metav1 "github.com/tkellen/aevitas/pkg/resource/meta/v1"
 	"image"
@@ -22,19 +23,25 @@ func NewJpeg(manifest []byte) (*Jpeg, error) {
 		return nil, err
 	}
 	if err := instance.Validate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s\n%w", manifest, err)
 	}
 	return &instance, nil
 }
 
-func (img *Jpeg) Validate() error { return img.Spec.Validate() }
+func (img *Jpeg) Validate() error {
+	return img.Spec.Validate()
+}
 
-func (img *Jpeg) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
-	return img.Spec.Scope(fs)
+func (img *Jpeg) Deps(_ context.Context) ([]string, error) {
+	return []string{}, nil
 }
 
 func (img *Jpeg) Current(fs billy.Filesystem) bool {
 	return img.Spec.Current(fs)
+}
+
+func (img *Jpeg) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
+	return img.Spec.Scope(fs, img.Meta.Name)
 }
 
 func (img *Jpeg) Render(ctx context.Context, fs billy.Filesystem) error {

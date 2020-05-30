@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func Run(_ []string, stdin *os.File, stdout io.Writer, stderr io.Writer) int {
+func Run(args []string, stdin *os.File, stdout io.Writer, stderr io.Writer) int {
 	log.SetOutput(ioutil.Discard)
 	logger := logging.Standard(stdout, stderr)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -32,7 +32,11 @@ func Run(_ []string, stdin *os.File, stdout io.Writer, stderr io.Writer) int {
 	if (stat.Mode() & os.ModeCharDevice) != 0 {
 		logger.Stderr.Print("index must be provided on stdin")
 	}
-	if err := render.Run(ctx, logger, osfs.New("build"), os.Stdin); err != nil {
+	target := "all"
+	if len(args) > 0 {
+		target = args[1]
+	}
+	if err := render.Run(ctx, osfs.New("build"), os.Stdin, target); err != nil {
 		logger.Stderr.Print(err)
 		return 1
 	}

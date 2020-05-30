@@ -8,11 +8,9 @@ import (
 	"os"
 )
 
-// GroupName is the group name used in this package.
-const GroupName = "Meta"
-
 type Meta struct {
 	File string
+	Name string
 }
 
 func (m *Meta) DataReader(_ context.Context) (io.ReadCloser, error) {

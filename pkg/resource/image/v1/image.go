@@ -10,25 +10,18 @@ import (
 	"strings"
 )
 
-// GroupName is the group name used in this package.
-const GroupName = "image"
-
 type imageSpec struct {
-	ID     string
 	Name   string
 	Widths []int
 }
 
-func (img *imageSpec) Validate() error {
+func (is *imageSpec) Validate() error {
 	var errs []string
-	if img.ID == "" {
-		errs = append(errs, "id must be defined")
+	if is.Name == "" {
+		errs = append(errs, "spec.name must be defined")
 	}
-	if img.Name == "" {
-		errs = append(errs, "name must be defined")
-	}
-	if len(img.Widths) == 0 {
-		errs = append(errs, "at least one size must be provided")
+	if len(is.Widths) == 0 {
+		errs = append(errs, "spec.size must be defined as an array")
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "\n"))
@@ -36,13 +29,13 @@ func (img *imageSpec) Validate() error {
 	return nil
 }
 
-func (img *imageSpec) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
-	return fs.Chroot(filepath.Join(GroupName, img.ID))
+func (is *imageSpec) Scope(fs billy.Filesystem, name string) (billy.Filesystem, error) {
+	return fs.Chroot(filepath.Join("asset", "image", name))
 }
 
-func (img *imageSpec) Current(fs billy.Filesystem) bool {
+func (is *imageSpec) Current(fs billy.Filesystem) bool {
 	var widths []int
-	for _, width := range img.Widths {
+	for _, width := range is.Widths {
 		if stat, _ := fs.Stat(strconv.Itoa(width)); stat != nil && stat.Size() != 0 {
 			continue
 		}
@@ -51,11 +44,11 @@ func (img *imageSpec) Current(fs billy.Filesystem) bool {
 	return len(widths) == 0
 }
 
-func (img *imageSpec) Render(ctx context.Context, render func(int) error) error {
+func (is *imageSpec) Render(ctx context.Context, render func(int) error) error {
 	// Compute all sizes simultaneously. This may need to be gated further but
 	// attempting to do so from the caller first.
 	eg, egCtx := errgroup.WithContext(ctx)
-	for _, width := range img.Widths {
+	for _, width := range is.Widths {
 		width := width
 		eg.Go(func() error {
 			// Detect cancellation.
