@@ -1,55 +1,52 @@
-package v1
+package image
 
 import (
 	"context"
 	"fmt"
 	"github.com/go-git/go-billy/v5"
 	json "github.com/json-iterator/go"
-	metav1 "github.com/tkellen/aevitas/pkg/resource/meta/v1"
+	"github.com/tkellen/aevitas/pkg/resource/v1"
 	"strconv"
 )
 
 type Gif struct {
-	Meta metav1.Meta
-	Spec imageSpec
+	Resource *resource.Resource
+	Spec     *imageSpec
 }
 
-func NewGif(manifest []byte) (*Gif, error) {
-	var instance Gif
-	if err := json.Unmarshal(manifest, &instance); err != nil {
+func NewGif(r *resource.Resource) (*Gif, error) {
+	instance := &Gif{Resource: r}
+	if err := json.Unmarshal(r.Spec, &instance.Spec); err != nil {
 		return nil, err
 	}
 	if err := instance.Validate(); err != nil {
-		return nil, fmt.Errorf("%s\n%w", manifest, err)
+		return nil, fmt.Errorf("%s\n%w", r.Spec, err)
 	}
-	return &instance, nil
+	return instance, nil
 }
 
 func (img *Gif) Validate() error {
 	return img.Spec.Validate()
 }
 
-func (img *Gif) Deps(_ context.Context) ([]string, error) {
-	return []string{}, nil
-}
-
-func (img *Gif) Current(fs billy.Filesystem) bool {
-	return img.Spec.Current(fs)
-}
-
-func (img *Gif) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
-	return img.Spec.Scope(fs, img.Meta.Name)
-}
-
 func (img *Gif) Render(ctx context.Context, fs billy.Filesystem) error {
-	data, readErr := img.Meta.DataBytes(ctx)
+	scopeFs, scopeErr := img.Spec.Scope(fs)
+	if scopeErr != nil {
+		return scopeErr
+	}
+	if img.Spec.Current(scopeFs) {
+		return nil
+	}
+	data, readErr := img.Resource.Bytes(ctx)
 	if readErr != nil {
 		return readErr
 	}
 	return img.Spec.Render(ctx, func(width int) error {
-		return img.write(data, fs, width)
+		return img.write(data, scopeFs, width)
 	})
 }
+
+func (img *Gif) Content(ctx context.Context) ([]byte, error) { return img.Resource.Bytes(ctx) }
 
 func (img *Gif) write(src []byte, fs billy.Filesystem, width int) error {
 	filePath := strconv.Itoa(width)

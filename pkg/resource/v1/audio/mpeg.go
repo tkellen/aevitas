@@ -1,64 +1,56 @@
-package v1
+package audio
 
 import (
 	"context"
 	"fmt"
 	"github.com/go-git/go-billy/v5"
 	json "github.com/json-iterator/go"
-	metav1 "github.com/tkellen/aevitas/pkg/resource/meta/v1"
+	"github.com/tkellen/aevitas/pkg/resource/v1"
 	"path/filepath"
 )
 
 type Mpeg struct {
-	Meta metav1.Meta
-	Spec MpegSpec
+	Resource *resource.Resource
+	Spec     MpegSpec
 }
 
 type MpegSpec struct {
-	Name string
+	Title string
 }
 
-func NewMpeg(manifest []byte) (*Mpeg, error) {
-	var instance Mpeg
-	if err := json.Unmarshal(manifest, &instance); err != nil {
+func NewMpeg(r *resource.Resource) (*Mpeg, error) {
+	instance := &Mpeg{Resource: r}
+	if err := json.Unmarshal(r.Spec, &instance.Spec); err != nil {
 		return nil, err
 	}
 	if err := instance.Validate(); err != nil {
-		return nil, fmt.Errorf("%s\n%w", manifest, err)
+		return nil, fmt.Errorf("%s\n%w", r.Manifest, err)
 	}
-	return &instance, nil
+	return instance, nil
 }
-
 func (m *Mpeg) Validate() error {
-	if m.Spec.Name == "" {
-		return fmt.Errorf("spec.name must be defined")
+	if m.Spec.Title == "" {
+		return fmt.Errorf("spec.title must be defined")
 	}
 	return nil
 }
-
-func (m *Mpeg) Deps(_ context.Context) ([]string, error) { return []string{}, nil }
-
-func (m *Mpeg) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
+func (m *Mpeg) scope(fs billy.Filesystem) (billy.Filesystem, error) {
 	return fs.Chroot(filepath.Join("asset", "audio", "field-recording"))
 }
-
-func (m *Mpeg) Current(fs billy.Filesystem) bool {
+func (m *Mpeg) current(fs billy.Filesystem) bool {
 	if stat, _ := fs.Stat(m.file()); stat != nil && stat.Size() != 0 {
 		return true
 	}
 	return false
 }
-
-func (m *Mpeg) file() string {
-	return m.Meta.Name
-}
-
+func (m *Mpeg) file() string                                { return m.Resource.Name }
+func (m *Mpeg) Content(ctx context.Context) ([]byte, error) { return m.Resource.Bytes(ctx) }
 func (m *Mpeg) Render(ctx context.Context, fs billy.Filesystem) error {
 	filePath := m.file()
 	if err := fs.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 		return err
 	}
-	src, readErr := m.Meta.DataBytes(ctx)
+	src, readErr := m.Resource.Bytes(ctx)
 	if readErr != nil {
 		return readErr
 	}

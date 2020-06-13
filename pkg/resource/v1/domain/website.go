@@ -6,7 +6,12 @@ type websiteSpec struct {
 	Title       string
 	Description string
 	Author      string
-	//Aliases     []string
+	Pages       []pageSpec
+	Domain      string
+}
+
+type pageSpec struct {
+	Selector string
 }
 
 func (ws *websiteSpec) Validate() error {

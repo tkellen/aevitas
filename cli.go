@@ -36,7 +36,7 @@ func Run(args []string, stdin *os.File, stdout io.Writer, stderr io.Writer) int 
 	if len(args) > 0 {
 		target = args[1]
 	}
-	if err := render.Run(ctx, osfs.New("build"), os.Stdin, target); err != nil {
+	if err := render.Do(ctx, osfs.New("build"), os.Stdin, target); err != nil {
 		logger.Stderr.Print(err)
 		return 1
 	}

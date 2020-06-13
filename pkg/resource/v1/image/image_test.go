@@ -1,4 +1,4 @@
-package v1_test
+package image_test
 
 import (
 	"github.com/pixiv/go-libjpeg/jpeg"

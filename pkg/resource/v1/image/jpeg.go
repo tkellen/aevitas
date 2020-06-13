@@ -1,4 +1,4 @@
-package v1
+package image
 
 import (
 	"context"
@@ -7,45 +7,44 @@ import (
 	"github.com/go-git/go-billy/v5"
 	json "github.com/json-iterator/go"
 	"github.com/pixiv/go-libjpeg/jpeg"
-	metav1 "github.com/tkellen/aevitas/pkg/resource/meta/v1"
+	"github.com/tkellen/aevitas/pkg/resource/v1"
 	"image"
 	"strconv"
 )
 
 type Jpeg struct {
-	Meta metav1.Meta
-	Spec *imageSpec
+	Resource *resource.Resource
+	Spec     *imageSpec
 }
 
-func NewJpeg(manifest []byte) (*Jpeg, error) {
-	var instance Jpeg
-	if err := json.Unmarshal(manifest, &instance); err != nil {
+func NewJpeg(r *resource.Resource) (*Jpeg, error) {
+	instance := &Jpeg{Resource: r}
+	if err := json.Unmarshal(r.Spec, &instance.Spec); err != nil {
 		return nil, err
 	}
 	if err := instance.Validate(); err != nil {
-		return nil, fmt.Errorf("%s\n%w", manifest, err)
+		return nil, fmt.Errorf("%s\n%w", r.Spec, err)
 	}
-	return &instance, nil
+	return instance, nil
 }
 
 func (img *Jpeg) Validate() error {
 	return img.Spec.Validate()
 }
 
-func (img *Jpeg) Deps(_ context.Context) ([]string, error) {
-	return []string{}, nil
-}
-
 func (img *Jpeg) Current(fs billy.Filesystem) bool {
 	return img.Spec.Current(fs)
 }
 
-func (img *Jpeg) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
-	return img.Spec.Scope(fs, img.Meta.Name)
-}
-
 func (img *Jpeg) Render(ctx context.Context, fs billy.Filesystem) error {
-	src, readErr := img.Meta.DataReader(ctx)
+	scopeFs, scopeErr := img.Spec.Scope(fs)
+	if scopeErr != nil {
+		return scopeErr
+	}
+	if img.Spec.Current(scopeFs) {
+		return nil
+	}
+	src, readErr := img.Resource.Reader(ctx)
 	if readErr != nil {
 		return readErr
 	}
@@ -54,9 +53,11 @@ func (img *Jpeg) Render(ctx context.Context, fs billy.Filesystem) error {
 		return decodeErr
 	}
 	return img.Spec.Render(ctx, func(width int) error {
-		return img.write(image, fs, width)
+		return img.write(image, scopeFs, width)
 	})
 }
+
+func (img *Jpeg) Content(ctx context.Context) ([]byte, error) { return img.Resource.Bytes(ctx) }
 
 func (img *Jpeg) write(src image.Image, fs billy.Filesystem, width int) error {
 	filePath := strconv.Itoa(width)
