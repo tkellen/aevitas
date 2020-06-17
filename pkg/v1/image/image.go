@@ -12,11 +12,11 @@ import (
 type imageSpec struct {
 	Title  string
 	Widths []int
-	Path string
+	Path   string
 	Domain string
 }
 
-func (is *imageSpec) Validate() error {
+func (is *imageSpec) validate() error {
 	var errs []string
 	if is.Title == "" {
 		errs = append(errs, "spec.title must be defined")
@@ -33,11 +33,11 @@ func (is *imageSpec) Validate() error {
 	return nil
 }
 
-func (is *imageSpec) Scope(fs billy.Filesystem) (billy.Filesystem, error) {
+func (is *imageSpec) scope(fs billy.Filesystem) (billy.Filesystem, error) {
 	return fs.Chroot(is.Path)
 }
 
-func (is *imageSpec) Current(fs billy.Filesystem) bool {
+func (is *imageSpec) current(fs billy.Filesystem) bool {
 	var widths []int
 	for _, width := range is.Widths {
 		if stat, _ := fs.Stat(strconv.Itoa(width)); stat != nil && stat.Size() != 0 {
@@ -48,7 +48,7 @@ func (is *imageSpec) Current(fs billy.Filesystem) bool {
 	return len(widths) == 0
 }
 
-func (is *imageSpec) Render(ctx context.Context, render func(int) error) error {
+func (is *imageSpec) render(ctx context.Context, render func(int) error) error {
 	// Compute all sizes simultaneously. This may need to be gated further but
 	// attempting to do so from the caller first.
 	eg, egCtx := errgroup.WithContext(ctx)

@@ -9,7 +9,7 @@ import (
 )
 
 func BenchmarkEncodeDecodeLibJpeg(b *testing.B) {
-	image, openErr := os.Open("testdata/image.jpg")
+	image, openErr := os.Open("../../../testdata/image.jpg")
 	if openErr != nil {
 		b.Fatal(openErr)
 	}
@@ -29,7 +29,7 @@ func BenchmarkEncodeDecodeLibJpeg(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeNativeJpeg(b *testing.B) {
-	image, openErr := os.Open("testdata/image.jpg")
+	image, openErr := os.Open("../../../testdata/image.jpg")
 	if openErr != nil {
 		b.Fatal(openErr)
 	}

@@ -7,18 +7,20 @@ import (
 	"github.com/go-git/go-billy/v5"
 	json "github.com/json-iterator/go"
 	"github.com/pixiv/go-libjpeg/jpeg"
-	"github.com/tkellen/aevitas/pkg/resource/v1"
+	"github.com/tkellen/aevitas/pkg/resource"
 	"image"
 	"strconv"
 )
 
+const KGVJpeg = "image/jpeg/v1"
+
 type Jpeg struct {
-	Resource *resource.Resource
+	resource *resource.Resource
 	Spec     *imageSpec
 }
 
 func NewJpeg(r *resource.Resource) (*Jpeg, error) {
-	instance := &Jpeg{Resource: r}
+	instance := &Jpeg{resource: r}
 	if err := json.Unmarshal(r.Spec, &instance.Spec); err != nil {
 		return nil, err
 	}
@@ -28,36 +30,28 @@ func NewJpeg(r *resource.Resource) (*Jpeg, error) {
 	return instance, nil
 }
 
-func (img *Jpeg) Validate() error {
-	return img.Spec.Validate()
-}
+func (img *Jpeg) Validate() error { return img.Spec.validate() }
 
-func (img *Jpeg) Current(fs billy.Filesystem) bool {
-	return img.Spec.Current(fs)
-}
-
-func (img *Jpeg) Render(ctx context.Context, fs billy.Filesystem) error {
-	scopeFs, scopeErr := img.Spec.Scope(fs)
+func (img *Jpeg) Render(ctx context.Context, r resource.Element) error {
+	scopedDest, scopeErr := img.Spec.scope(r.Dest())
 	if scopeErr != nil {
 		return scopeErr
 	}
-	if img.Spec.Current(scopeFs) {
+	if img.Spec.current(scopedDest) {
 		return nil
 	}
-	src, readErr := img.Resource.Reader(ctx)
+	src, readErr := img.resource.Reader(ctx, r.Source())
 	if readErr != nil {
 		return readErr
 	}
-	image, decodeErr := jpeg.Decode(src, &jpeg.DecoderOptions{})
+	data, decodeErr := jpeg.Decode(src, &jpeg.DecoderOptions{})
 	if decodeErr != nil {
 		return decodeErr
 	}
-	return img.Spec.Render(ctx, func(width int) error {
-		return img.write(image, scopeFs, width)
+	return img.Spec.render(ctx, func(width int) error {
+		return img.write(data, scopedDest, width)
 	})
 }
-
-func (img *Jpeg) Content(ctx context.Context) ([]byte, error) { return img.Resource.Bytes(ctx) }
 
 func (img *Jpeg) write(src image.Image, fs billy.Filesystem, width int) error {
 	filePath := strconv.Itoa(width)

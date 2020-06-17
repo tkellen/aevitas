@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"github.com/go-git/go-billy/v5"
 	json "github.com/json-iterator/go"
-	"github.com/tkellen/aevitas/pkg/resource/v1"
+	"github.com/tkellen/aevitas/pkg/resource"
 	"strconv"
 )
 
+const KGVGif = "image/gif/v1"
+
 type Gif struct {
-	Resource *resource.Resource
+	resource *resource.Resource
 	Spec     *imageSpec
 }
 
 func NewGif(r *resource.Resource) (*Gif, error) {
-	instance := &Gif{Resource: r}
+	instance := &Gif{resource: r}
 	if err := json.Unmarshal(r.Spec, &instance.Spec); err != nil {
 		return nil, err
 	}
@@ -25,28 +27,24 @@ func NewGif(r *resource.Resource) (*Gif, error) {
 	return instance, nil
 }
 
-func (img *Gif) Validate() error {
-	return img.Spec.Validate()
-}
+func (img *Gif) Validate() error { return img.Spec.validate() }
 
-func (img *Gif) Render(ctx context.Context, fs billy.Filesystem) error {
-	scopeFs, scopeErr := img.Spec.Scope(fs)
+func (img *Gif) Render(ctx context.Context, r resource.Element) error {
+	scopedDest, scopeErr := img.Spec.scope(r.Dest())
 	if scopeErr != nil {
 		return scopeErr
 	}
-	if img.Spec.Current(scopeFs) {
+	if img.Spec.current(scopedDest) {
 		return nil
 	}
-	data, readErr := img.Resource.Bytes(ctx)
+	data, readErr := img.resource.Bytes(ctx, r.Source())
 	if readErr != nil {
 		return readErr
 	}
-	return img.Spec.Render(ctx, func(width int) error {
-		return img.write(data, scopeFs, width)
+	return img.Spec.render(ctx, func(width int) error {
+		return img.write(data, scopedDest, width)
 	})
 }
-
-func (img *Gif) Content(ctx context.Context) ([]byte, error) { return img.Resource.Bytes(ctx) }
 
 func (img *Gif) write(src []byte, fs billy.Filesystem, width int) error {
 	filePath := strconv.Itoa(width)

@@ -4,7 +4,9 @@ import (
 	"context"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/tkellen/aevitas/internal/logging"
-	"github.com/tkellen/aevitas/pkg/render"
+	"github.com/tkellen/aevitas/pkg/element"
+	"github.com/tkellen/aevitas/pkg/resource"
+	"github.com/tkellen/aevitas/pkg/selector"
 	"io"
 	"io/ioutil"
 	"log"
@@ -36,7 +38,40 @@ func Run(args []string, stdin *os.File, stdout io.Writer, stderr io.Writer) int 
 	if len(args) > 0 {
 		target = args[1]
 	}
-	if err := render.Do(ctx, osfs.New("build"), os.Stdin, target); err != nil {
+	// Get list of all possible resources to render.
+	resources, newErr := resource.NewListFromReader(os.Stdin)
+	if newErr != nil {
+		logger.Stderr.Print(newErr)
+		return 1
+	}
+	// Index resources by type.
+	index := resources.Indexed()
+	// Find target to render.
+	rsrc, getErr := index.Get(target)
+	if getErr != nil {
+		logger.Stderr.Print(getErr)
+		return 1
+	}
+	// Filter list of resource to those required to render the target.
+	filtered, filterErr := index.Traverse(resource.List{rsrc}, nil)
+	if filterErr != nil {
+		logger.Stderr.Print(filterErr)
+		return 1
+	}
+	// Create a root element to render.
+	root, err := element.New(
+		"",
+		rsrc.Selector,
+		selector.Selector{},
+		filtered.Indexed(),
+		osfs.New("/home/tkellen/memorybox"),
+		osfs.New("build"),
+	)
+	if err != nil {
+		logger.Stderr.Print(err)
+		return 1
+	}
+	if err := root.Render(ctx); err != nil {
 		logger.Stderr.Print(err)
 		return 1
 	}
