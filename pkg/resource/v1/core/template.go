@@ -1,0 +1,32 @@
+package core
+
+import (
+	json "github.com/json-iterator/go"
+	"github.com/tkellen/aevitas/pkg/manifest"
+)
+
+const KGVTemplate = "core/template/v1"
+
+type Template struct {
+	*manifest.Manifest
+	Spec *TemplateSpec
+}
+type TemplateSpec struct {
+	Body string
+}
+
+func NewTemplate(m *manifest.Manifest) (*Template, error) {
+	instance := &Template{
+		Manifest: m,
+		Spec:     &TemplateSpec{},
+	}
+	if err := json.Unmarshal(m.Spec, instance.Spec); err != nil {
+		return nil, err
+	}
+	if err := instance.Validate(); err != nil {
+		return nil, err
+	}
+	return instance, nil
+}
+func (f *Template) Validate() error { return nil }
+func (f *Template) Content() string { return f.Spec.Body }

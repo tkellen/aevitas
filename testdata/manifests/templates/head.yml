@@ -1,0 +1,10 @@
+namespace: default
+kind: core
+group: template
+version: v1
+name: head
+spec:
+  body: |-
+    <head>
+      <title>{{ if .Parent }}{{ .Parent.Instance.Spec.Title }} | {{ end }}{{ .Instance.Spec.Title }}</title>
+    </head>

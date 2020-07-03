@@ -1,0 +1,10 @@
+namespace: default
+kind: core
+group: relation
+version: v1
+name: topics
+meta:
+  related:
+  - default/website/page/v1/*
+  - default/website/taxonomy/v1/*
+spec:

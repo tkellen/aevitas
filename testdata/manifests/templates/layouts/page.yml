@@ -1,0 +1,18 @@
+namespace: default
+kind: core
+group: template
+version: v1
+name: page
+meta:
+  include:
+  - resource: default/core/template/v1/head
+    as: head
+spec:
+  body: |-
+    <!DOCTYPE html>
+    <html>
+      {{ template "head" . }}
+      <body>
+      {{ yield }}
+      </body>
+    </html>

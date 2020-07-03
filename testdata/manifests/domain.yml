@@ -1,0 +1,16 @@
+namespace: default
+kind: website
+group: domain
+version: v1
+name: test
+meta:
+  include:
+  - resource: default/website/page/v1/*
+    layouts:
+    - default/core/template/v1/post
+    - default/core/template/v1/page
+spec:
+  host: test.com
+  title: test website title
+  author: website author
+  description: website description

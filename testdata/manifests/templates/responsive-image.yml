@@ -1,0 +1,8 @@
+namespace: default
+kind: core
+group: template
+version: v1
+name: responsive-image
+spec:
+  body: |-
+    <img src="{{.Instance.Spec.Path}}/{{index .Instance.Spec.Widths 0}}" srcset="{{range .Instance.Spec.Widths}}{{$.Instance.Spec.Path}}/{{.}} {{.}}w {{end}}" title="{{.Instance.Spec.Title}}"/>

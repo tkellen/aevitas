@@ -1,0 +1,11 @@
+namespace: default
+kind: image
+group: jpeg
+version: v1
+name: piggies
+meta:
+  file: piggies.jpg
+spec:
+  path: /image/piggies
+  title: none
+  widths: [100,200,300]

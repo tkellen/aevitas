@@ -1,0 +1,9 @@
+namespace: default
+kind: core
+group: template
+version: v1
+name: taxonomy
+spec:
+  body: |-
+    <h1>{{.Instance.Spec.Title }}</h1>
+    {{ .Instance.Content }}

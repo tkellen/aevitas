@@ -1,0 +1,11 @@
+namespace: default
+kind: image
+group: jpeg
+version: v1
+name: nun
+meta:
+  file: nun.jpg
+spec:
+  path: /image/nun
+  title: none
+  widths: [100,200,300]

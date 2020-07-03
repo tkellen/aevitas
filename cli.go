@@ -4,9 +4,9 @@ import (
 	"context"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/tkellen/aevitas/internal/logging"
-	"github.com/tkellen/aevitas/pkg/element"
+	"github.com/tkellen/aevitas/internal/runner"
+	"github.com/tkellen/aevitas/pkg/manifest"
 	"github.com/tkellen/aevitas/pkg/resource"
-	"github.com/tkellen/aevitas/pkg/selector"
 	"io"
 	"io/ioutil"
 	"log"
@@ -34,43 +34,29 @@ func Run(args []string, stdin *os.File, stdout io.Writer, stderr io.Writer) int 
 	if (stat.Mode() & os.ModeCharDevice) != 0 {
 		logger.Stderr.Print("index must be provided on stdin")
 	}
-	target := "all"
-	if len(args) > 0 {
-		target = args[1]
-	}
 	// Get list of all possible resources to render.
-	resources, newErr := resource.NewListFromReader(os.Stdin)
-	if newErr != nil {
-		logger.Stderr.Print(newErr)
+	fromStdin, fromStdinErr := manifest.NewListFromReader(os.Stdin)
+	if fromStdinErr != nil {
+		logger.Stderr.Print(fromStdinErr)
 		return 1
 	}
-	// Index resources by type.
-	index := resources.Indexed()
-	// Find target to render.
-	rsrc, getErr := index.Get(target)
-	if getErr != nil {
-		logger.Stderr.Print(getErr)
+	fromDisk, fromDirErr := manifest.NewListFromDirectory("resources")
+	if fromDirErr != nil {
+		logger.Stderr.Print(fromDirErr)
 		return 1
 	}
-	// Filter list of resource to those required to render the target.
-	filtered, filterErr := index.Traverse(resource.List{rsrc}, nil)
-	if filterErr != nil {
-		logger.Stderr.Print(filterErr)
-		return 1
-	}
-	// Create a root element to render.
-	root, err := element.New(
-		"",
-		rsrc.Selector,
-		selector.Selector{},
-		filtered.Indexed(),
+	// Establish registry to start rendering.
+	factory := runner.DefaultFactory(
 		osfs.New("/home/tkellen/memorybox"),
-		osfs.New("build"),
+		osfs.New("build/goingslowly"),
 	)
+	// Get element to render
+	root, err := resource.New(args[1], append(fromStdin, fromDisk...).Indexed(), factory)
 	if err != nil {
 		logger.Stderr.Print(err)
 		return 1
 	}
+	// Render element.
 	if err := root.Render(ctx); err != nil {
 		logger.Stderr.Print(err)
 		return 1
