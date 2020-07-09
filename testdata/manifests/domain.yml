@@ -9,6 +9,9 @@ meta:
     layouts:
     - default/core/template/v1/post
     - default/core/template/v1/page
+  - resource: default/website/taxonomy/v1/*
+    layouts:
+    - default/core/template/v1/taxonomy
 spec:
   host: test.com
   title: test website title

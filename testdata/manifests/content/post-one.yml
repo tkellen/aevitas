@@ -2,7 +2,7 @@ namespace: default
 kind: website
 group: page
 version: v1
-name: page-one
+name: post-one
 meta:
   include:
   - resource: default/image/jpeg/v1/nun
@@ -11,6 +11,8 @@ meta:
   - resource: default/image/jpeg/v1/piggies
     template: default/core/template/v1/responsive-image
     as: piggies
+  related:
+  - default/website/taxonomy/v1/worst-moments
 spec:
   path: page-one.html
   title: page one
@@ -19,3 +21,4 @@ spec:
     {{ template "piggies" }}
     <p>Morbi finibus elit quis tellus rhoncus porttitor. Nunc porta ante odio, quis consequat erat venenatis luctus. Mauris pretium auctor nisi, vitae tincidunt libero euismod ut. Aliquam sit amet fermentum lacus. Praesent tortor nulla, volutpat a vestibulum sit amet, facilisis quis enim. Ut condimentum semper risus, in rhoncus dolor interdum ut. Nunc in feugiat ligula. Maecenas lectus arcu, gravida vel lacinia eget, porttitor in nisi. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In fermentum libero at nisi porta iaculis. Sed iaculis enim at nulla molestie, ac tincidunt turpis volutpat. Quisque id lorem eros.</p>
     {{ template "nun" }}
+    {{ .Related }}

@@ -2,12 +2,15 @@ namespace: default
 kind: website
 group: page
 version: v1
-name: page-two
+name: post-two
 meta:
   include:
   - resource: default/image/jpeg/v1/nun
     template: default/core/template/v1/responsive-image
     as: nun
+  related:
+  - default/website/taxonomy/v1/worst-moments
+  - default/website/taxonomy/v1/favorite-days
 spec:
   path: page-two.html
   title: page two

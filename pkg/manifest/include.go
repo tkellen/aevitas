@@ -5,12 +5,12 @@ import (
 	json "github.com/json-iterator/go"
 )
 
-// Include describes how a manifest can depend on other manifests.
+// included describes how a manifest can depend on other manifests.
 type Include struct {
 	// Resource points to a resource that is required for rendering the
 	// manifest this import belongs to.
 	Resource *Selector
-	// Template optionally points to a resource that should be used to
+	// template optionally points to a resource that should be used to
 	// render the resource being imported.
 	Template *Selector
 	// Layout optionally points to a resource that should be used to
@@ -68,21 +68,22 @@ func (i *Include) Validate() error {
 
 // Expand turns an include with a wildcard selector into a static array of fully
 // specified includes by matching against a supplied index.
-func (i Include) Expand(index IndexedList) []Include {
-	selectors := i.Resource.Expand(index)
-	if len(selectors) > 1 {
-		includes := make([]Include, len(selectors))
-		for idx, selector := range selectors {
-			includes[idx] = Include{
-				Resource: selector,
+func (i *Include) Expand(index *Index) []*Include {
+	if i.Resource.IsWildcard() {
+		// Error ignored because wildcard selector is valid with no matches.
+		manifests, _ := index.Find(SelectorList{i.Resource})
+		includes := make([]*Include, len(manifests))
+		for idx, manifest := range manifests {
+			includes[idx] = &Include{
+				Resource: manifest.Selector,
 				Template: i.Template,
 				Layouts:  i.Layouts,
-				As:       selector.ID(),
+				As:       manifest.ID(),
 			}
 		}
 		return includes
 	}
-	return []Include{i}
+	return []*Include{i}
 }
 
 // UnmarshalJSON converts string selectors in an import payload to instantiated

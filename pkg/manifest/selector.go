@@ -99,17 +99,3 @@ func (s *Selector) UnmarshalJSON(data []byte) error {
 	*s = *result
 	return nil
 }
-
-func (s *Selector) Expand(index IndexedList) SelectorList {
-	selectors := SelectorList{s}
-	if s.IsWildcard() {
-		shard, ok := index[s.NKGV()]
-		if ok {
-			selectors = make(SelectorList, len(shard.Manifests))
-			for idx, manifest := range shard.Manifests {
-				selectors[idx] = manifest.Selector
-			}
-		}
-	}
-	return selectors
-}

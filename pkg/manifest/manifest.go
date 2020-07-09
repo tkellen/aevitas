@@ -26,10 +26,10 @@ type Manifest struct {
 // Meta provides details about the resource such as where the backing data for
 // it can be found.
 type Meta struct {
-	File string
-	Related []*Selector
+	File    string
+	Related *SelectorList
 	// Includes allows a manifest to express a dependency on other resources.
-	Include []Include
+	Include []*Include
 }
 
 // NewFromFile creates a manifest from a source file.
@@ -90,24 +90,32 @@ func (m *Manifest) Validate() error {
 	return nil
 }
 
-// Includes return a list of resources the manifest includes on.
-func (m *Manifest) Include() SelectorList {
-	var result SelectorList
-	if m.Meta.Include == nil {
-		return result
+// Get list of manifests for of every related and included resource.
+func (m *Manifest) Related(index *Index) (List, error) {
+	related := List{}
+	if len(m.Meta.Include) > 0 {
+		for _, include := range m.Meta.Include {
+			for _, selector := range append(include.Layouts, include.Template, include.Resource) {
+				if selector != nil {
+					manifests, findErr := index.Find(SelectorList{selector})
+					if findErr != nil {
+						return nil, findErr
+					}
+					related = append(related, manifests...)
+				}
+			}
+		}
 	}
-	for _, item := range m.Meta.Include {
-		if item.Resource != nil {
-			result = append(result, item.Resource)
-		}
-		if item.Template != nil {
-			result = append(result, item.Template)
-		}
-		if item.Layouts != nil {
-			result = append(result, item.Layouts...)
+	if m.Meta.Related != nil {
+		for _, selector := range *m.Meta.Related {
+			manifests, findErr := index.Find(SelectorList{selector})
+			if findErr != nil {
+				return nil, findErr
+			}
+			related = append(related, manifests...)
 		}
 	}
-	return result
+	return related, nil
 }
 
 // String returns the ID of the resource and the entire manifest that it was
@@ -123,7 +131,10 @@ func (m *Manifest) NKGV() string { return m.Selector.NKGV() }
 // ID is a convenience function that returns the ID of the resource selector.
 func (m *Manifest) ID() string { return m.Selector.ID() }
 
-func (m *Manifest) Traverse(index IndexedList) (List, error) {
+func (m *Manifest) Traverse(index *Index) (List, error) {
+	if index == nil {
+
+	}
 	return index.traverse(List{m}, nil)
 }
 

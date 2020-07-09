@@ -103,34 +103,67 @@ func (l List) String() string {
 	return l.Indexed().String()
 }
 
-// IndexedList converts a List into an IndexedList.
-func (l List) Indexed() IndexedList {
+// Index converts a List into an Index.
+func (l List) Indexed() *Index {
 	var shard *IndexShard
-	index := IndexedList{}
+	index := Index{}
 	for _, manifest := range l {
 		nkgv := manifest.NKGV()
 		if _, ok := index[nkgv]; !ok {
 			index[nkgv] = &IndexShard{
-				Manifests: List{},
+				Manifests: &List{},
 				ById:      map[string]*Manifest{},
 			}
 		}
 		shard = index[nkgv]
-		shard.Manifests = append(shard.Manifests, manifest)
+		*shard.Manifests = append(*shard.Manifests, manifest)
 		shard.ById[manifest.ID()] = manifest
 	}
-	return index
+	return &index
 }
 
-// IndexedList is a map of resources indexed by NKGV and ID for fast lookups.
-type IndexedList map[string]*IndexShard
+func (l List) Relations(index *Index) (*Relations, error) {
+	relations := make(Relations, len(l))
+	// Instantiate a list to hold relations for every manifest.
+	for _, manifest := range l {
+		relations[manifest] = &List{}
+	}
+	// Record each manifest relationship on both sides regardless of which side
+	// it was actually recorded on.
+	for _, source := range l {
+		targets, err := source.Related(index)
+		if err != nil {
+			return nil, err
+		}
+		if len(targets) > 0 {
+			*relations[source] = append(*relations[source], targets...)
+			for _, target := range targets {
+				if _, ok := relations[target]; ok {
+					*relations[target] = append(*relations[target], source)
+				} else {
+					fmt.Fprintf(os.Stdout, "missing target %s\n", target)
+				}
+
+			}
+		}
+	}
+	return &relations, nil
+}
+
+// Index is a map of manifests keyed by NKGV and ID for fast lookups.
+type Index map[string]*IndexShard
+
+// Relations is a map of Lists keyed by manifest that record relationships
+// between manifests.
+type Relations map[*Manifest]*List
+
 type IndexShard struct {
-	Manifests []*Manifest
+	Manifests *List
 	ById      map[string]*Manifest
 }
 
-// String returns the count for each unique key/group/version in an IndexedList.
-func (il IndexedList) String() string {
+// String returns the count for each unique key/group/version in an Index.
+func (il Index) String() string {
 	format := "%-45s%v"
 	totals := []string{fmt.Sprintf(format, "INDEX SHARD", "COUNT")}
 	var shards []string
@@ -139,13 +172,13 @@ func (il IndexedList) String() string {
 	}
 	sort.Strings(shards)
 	for _, shard := range shards {
-		totals = append(totals, fmt.Sprintf(format, shard, len(il[shard].Manifests)))
+		totals = append(totals, fmt.Sprintf(format, shard, len(*il[shard].Manifests)))
 	}
 	return strings.Join(totals, "\n")
 }
 
 // Get finds a single resource using a string target.
-func (il IndexedList) Get(target string) (*Manifest, error) {
+func (il *Index) Get(target string) (*Manifest, error) {
 	s, selectorErr := NewSelector(target)
 	if selectorErr != nil {
 		return nil, selectorErr
@@ -154,10 +187,10 @@ func (il IndexedList) Get(target string) (*Manifest, error) {
 }
 
 // GetSelector finds a single resource using a selector.
-func (il IndexedList) GetSelector(target *Selector) (*Manifest, error) {
+func (il *Index) GetSelector(target *Selector) (*Manifest, error) {
 	nkgv := target.NKGV()
 	id := target.ID()
-	shard, ok := il[nkgv]
+	shard, ok := (*il)[nkgv]
 	if !ok {
 		return nil, fmt.Errorf("no manifests in shard %s", target)
 	}
@@ -170,7 +203,7 @@ func (il IndexedList) GetSelector(target *Selector) (*Manifest, error) {
 
 // Find produces a List that contains manifests whose IDs match the provided
 // selectors.
-func (il IndexedList) Find(selectors SelectorList) (List, error) {
+func (il *Index) Find(selectors SelectorList) (List, error) {
 	matches := List{}
 	// Save references to KGVs that have been entirely collected so they aren't
 	// collected more than once.
@@ -180,12 +213,12 @@ func (il IndexedList) Find(selectors SelectorList) (List, error) {
 	for _, s := range selectors {
 		entireKgv := s.IsWildcard()
 		nkgv := s.NKGV()
-		if shard, ok := il[nkgv]; ok {
+		if shard, ok := (*il)[nkgv]; ok {
 			// If a selector targets an entire NKGV, append all of its manifests
 			// without iterating them individually.
 			if entireKgv {
 				if _, ok := collectEntireKGV[nkgv]; !ok {
-					matches = append(matches, shard.Manifests...)
+					matches = append(matches, *shard.Manifests...)
 					collectEntireKGV[nkgv] = struct{}{}
 				}
 				continue
@@ -208,7 +241,7 @@ func (il IndexedList) Find(selectors SelectorList) (List, error) {
 
 // traverse recursively produces a full list of manifests imports for a supplied
 // array of parents.
-func (il IndexedList) traverse(parents List, visited map[string]struct{}) (List, error) {
+func (il *Index) traverse(parents List, visited map[string]struct{}) (List, error) {
 	var result List
 	if visited == nil {
 		visited = map[string]struct{}{}
@@ -226,9 +259,9 @@ func (il IndexedList) traverse(parents List, visited map[string]struct{}) (List,
 		// Save parent manifest in the results.
 		result = append(result, item)
 		// Find manifest for each dependency and related resource.
-		children, selectErr := il.Find(append(item.Include(), item.Meta.Related...))
-		if selectErr != nil {
-			return nil, fmt.Errorf("%s: dependency %w", id, selectErr)
+		children, relateErr := item.Related(il)
+		if relateErr != nil {
+			return nil, relateErr
 		}
 		// Recurse through all child dependencies.
 		deps, err := il.traverse(children, visited)
