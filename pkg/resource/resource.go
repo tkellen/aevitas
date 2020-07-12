@@ -59,12 +59,11 @@ type Resource struct {
 	// related expresses a relationships between resources that does not require
 	// rendering.
 	related []Instance
-	// template receives the resource as context during rendering to produce a
-	// string output.
-	template *Resource
-	// layouts is an array of template resources which can successively wrap the
-	// rendered output of the resource.
-	layouts []*Resource
+	// templates is an array of template resources that will be applied to
+	// produce textual output for the resource.
+	templates []*Resource
+	factory *Factory
+	index *manifest.Index
 }
 
 // New instantiates a resource and all of its dependencies.
@@ -194,25 +193,15 @@ func newResource(
 				return nil, err
 			}
 			dep.Parent = el
-			// If there is a template associated with this element, create
-			// an element for it so it can be used during rendering.
-			if i.Template != nil {
-				tmpl, tmplErr := newResource(i.Template.ID(), i.Template, index, factory, relations, root)
-				if tmplErr != nil {
-					return nil, err
-				}
-				tmpl.Parent = el
-				dep.template = tmpl
-			}
-			// If there are layouts associated with this element, create
-			// elements for them so they can be used during rendering.
-			for _, layoutSelector := range i.Layouts {
-				layout, err := newResource(layoutSelector.ID(), layoutSelector, index, factory, relations, root)
+			// If there are templates associated with this element, create
+			// resources for them so they can be used during rendering.
+			for _, templateSelector := range i.Templates {
+				tmpl, err := el.New(templateSelector.ID(), templateSelector)
 				if err != nil {
 					return nil, err
 				}
-				layout.Parent = el
-				dep.layouts = append(dep.layouts, layout)
+				tmpl.Parent = el
+				dep.templates = append(dep.templates, tmpl)
 			}
 			el.included = append(el.included, dep)
 		}
@@ -241,24 +230,17 @@ func (r *Resource) buildTemplate(root *template.Template) (*template.Template, e
 			return nil, err
 		}
 	}
-	// If there is a template associated with this element, recursively add it
-	// and its dependencies to the root template.
-	if r.template != nil {
-		if root, err = r.template.buildTemplate(root); err != nil {
-			return nil, err
-		}
-	}
-	// If there are a layouts associated with this element, recursively add them
-	// and their dependencies to the root template.
-	for _, layout := range r.layouts {
-		if root, err = layout.buildTemplate(root); err != nil {
+	// If there are a templates associated with this element, recursively add
+	// them and their dependencies to the root template.
+	for _, tmpl := range r.templates {
+		if root, err = tmpl.buildTemplate(root); err != nil {
 			return nil, err
 		}
 	}
 	// If there is no template "wrapping" this element, and the element's
 	// resource embeds template content, add that content and return early.
-	if resource, ok := r.Instance.(Templating); ok && r.template == nil {
-		return root.New(r.Name).Parse(resource.Content())
+	if resource, ok := r.Instance.(Templating); ok {
+		return root.New(r.Name).Parse(resource.Content());
 	}
 	// Render a string value for this element using the accumulated templates.
 	var content string
@@ -285,24 +267,30 @@ func (r *Resource) executeTemplate(tmpl *template.Template) (string, error) {
 	if err := temp.Execute(&buf, r); err != nil {
 		return "", err
 	}
-	return r.applyLayouts(tmpl, buf.String())
+	return r.applyTemplates(tmpl, buf.String())
 }
 
 // applyLayouts recursively applies layout templates.
-func (r *Resource) applyLayouts(tmpl *template.Template, yieldContent string) (string, error) {
+func (r *Resource) applyTemplates(root *template.Template, yieldContent string) (string, error) {
+	var temp *template.Template
 	var err error
 	var buf bytes.Buffer
 	content := yieldContent
-	for _, layout := range r.layouts {
+	for _, tmpl := range r.templates {
 		buf.Reset()
-		if err = tmpl.Lookup(layout.Name).Funcs(template.FuncMap{
+		// Make a clone of this template so it can be executed without preventing
+		// further templates from being added by the caller.
+		if temp, err = root.Clone(); err != nil {
+			return "", err
+		}
+		if err = temp.Lookup(tmpl.Name).Funcs(template.FuncMap{
 			"yield": func() template.HTML {
 				return template.HTML(content)
 			},
 		}).Execute(&buf, r); err != nil {
 			return "", err
 		}
-		if content, err = layout.applyLayouts(tmpl, buf.String()); err != nil {
+		if content, err = tmpl.applyTemplates(root, buf.String()); err != nil {
 			return "", err
 		}
 	}

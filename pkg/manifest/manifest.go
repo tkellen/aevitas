@@ -95,7 +95,7 @@ func (m *Manifest) Related(index *Index) (List, error) {
 	related := List{}
 	if len(m.Meta.Include) > 0 {
 		for _, include := range m.Meta.Include {
-			for _, selector := range append(include.Layouts, include.Template, include.Resource) {
+			for _, selector := range append(include.Templates, include.Resource) {
 				if selector != nil {
 					manifests, findErr := index.Find(SelectorList{selector})
 					if findErr != nil {

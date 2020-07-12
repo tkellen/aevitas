@@ -6,7 +6,7 @@ name: post-two
 meta:
   include:
   - resource: default/image/jpeg/v1/nun
-    template: default/core/template/v1/responsive-image
+    templates: [default/core/template/v1/responsive-image]
     as: nun
   related:
   - default/website/taxonomy/v1/worst-moments

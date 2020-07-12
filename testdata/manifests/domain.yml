@@ -6,12 +6,13 @@ name: test
 meta:
   include:
   - resource: default/website/page/v1/*
-    layouts:
+    templates:
     - default/core/template/v1/post
     - default/core/template/v1/page
   - resource: default/website/taxonomy/v1/*
-    layouts:
+    templates:
     - default/core/template/v1/taxonomy
+    - default/core/template/v1/page
 spec:
   host: test.com
   title: test website title

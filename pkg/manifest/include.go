@@ -10,18 +10,15 @@ type Include struct {
 	// Resource points to a resource that is required for rendering the
 	// manifest this import belongs to.
 	Resource *Selector
-	// template optionally points to a resource that should be used to
-	// render the resource being imported.
-	Template *Selector
-	// Layout optionally points to a resource that should be used to
-	// wrap the resource being imported after the template has been applied.
-	Layouts []*Selector
+	// Templates optionally points to resources that should be used as a "view"
+	// of the resource.
+	Templates []*Selector
 	// As provides an alternative name for referring to the imported resource.
 	As string
 }
 
 // NewInclude produces an import entry and validates it.
-func NewInclude(resource string, template string, layouts []string, as string) (*Include, error) {
+func NewInclude(resource string, templates []string, as string) (*Include, error) {
 	instance := &Include{As: as}
 	if resource != "" {
 		s, err := NewSelector(resource)
@@ -30,19 +27,12 @@ func NewInclude(resource string, template string, layouts []string, as string) (
 		}
 		instance.Resource = s
 	}
-	if template != "" {
-		s, err := NewSelector(template)
+	for _, tmpl := range templates {
+		s, err := NewSelector(tmpl)
 		if err != nil {
 			return nil, err
 		}
-		instance.Template = s
-	}
-	for _, layout := range layouts {
-		s, err := NewSelector(layout)
-		if err != nil {
-			return nil, err
-		}
-		instance.Layouts = append(instance.Layouts, s)
+		instance.Templates = append(instance.Templates, s)
 	}
 	if err := instance.Validate(); err != nil {
 		return nil, err
@@ -52,12 +42,9 @@ func NewInclude(resource string, template string, layouts []string, as string) (
 
 // Validate does just what you think it does.
 func (i *Include) Validate() error {
-	if i.Template != nil && i.Template.IsWildcard() {
-		return fmt.Errorf("template selector cannot be wildcard")
-	}
-	for _, layout := range i.Layouts {
-		if layout.IsWildcard() {
-			return fmt.Errorf("layout selector cannot be wildcard")
+	for _, tmpl := range i.Templates {
+		if tmpl.NameIsWildcard() {
+			return fmt.Errorf("template selector cannot be wildcard")
 		}
 	}
 	if i.As != "" && i.Resource != nil && i.Resource.IsWildcard() {
@@ -76,8 +63,7 @@ func (i *Include) Expand(index *Index) []*Include {
 		for idx, manifest := range manifests {
 			includes[idx] = &Include{
 				Resource: manifest.Selector,
-				Template: i.Template,
-				Layouts:  i.Layouts,
+				Templates:  i.Templates,
 				As:       manifest.ID(),
 			}
 		}
@@ -91,14 +77,13 @@ func (i *Include) Expand(index *Index) []*Include {
 func (i *Include) UnmarshalJSON(data []byte) error {
 	var entry struct {
 		Resource string
-		Template string
-		Layouts  []string
+		Templates  []string
 		As       string
 	}
 	if err := json.Unmarshal(data, &entry); err != nil {
 		return err
 	}
-	imported, err := NewInclude(entry.Resource, entry.Template, entry.Layouts, entry.As)
+	imported, err := NewInclude(entry.Resource, entry.Templates, entry.As)
 	if err != nil {
 		return err
 	}
