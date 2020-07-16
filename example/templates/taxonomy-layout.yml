@@ -1,0 +1,16 @@
+kind: html
+group: template
+version: v1
+namespace: taxonomy
+name: layout
+meta:
+  include:
+  - resource: html/template/v1/taxonomy/entries
+    as: list
+spec:
+  body: |-
+    <h1><a href="{{ .Href }}">{{ .Spec.Title }} Entries</a></h1>
+    {{- $related := (.Related "website/page/v1/post/*") -}}
+    {{ if $related }}
+       <ul>{{ template "list" $related }}</ul>
+    {{ end }}

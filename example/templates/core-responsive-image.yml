@@ -1,0 +1,8 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: responsive-image
+spec:
+  body: |-
+    <img src="{{.Href}}" srcset="{{range .Spec.Widths}}{{$.Spec.HrefRoot}}/{{.}} {{.}}w {{end}}" title="{{.Spec.Title}}"/>

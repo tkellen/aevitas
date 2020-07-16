@@ -1,0 +1,20 @@
+kind: website
+group: taxonomy
+version: v1
+namespace: tag
+name: worst-moments
+meta:
+  include:
+  - resource: website/page/v1/post/*
+    filter:
+      related: website/taxonomy/v1/tag/worst-moments
+    baseHref: /tag/worst-moments
+    templates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/core/layout
+spec:
+  title: Worst Moments
+  titleFragment: The Worst Most Hated Moments
+  description: Entries filed under the subject of "Worst Moments".
+  href: /tag/worst-moments/index.html

@@ -6,6 +6,7 @@ import (
 	json "github.com/json-iterator/go"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"github.com/tkellen/aevitas/pkg/resource"
+	"github.com/yosssi/gohtml"
 )
 
 const KGVTaxonomy = "website/taxonomy/v1"
@@ -16,10 +17,10 @@ type Taxonomy struct {
 }
 
 type TaxonomySpec struct {
-	Path          string
 	Title         string
-	TitleFragment string
-	Description   string
+	TitleFragment        string
+	Description string
+	Href        string
 }
 
 func NewTaxonomy(m *manifest.Manifest) (*Taxonomy, error) {
@@ -37,8 +38,8 @@ func NewTaxonomy(m *manifest.Manifest) (*Taxonomy, error) {
 }
 
 func (t *Taxonomy) Validate() error {
-	if t.Spec.Path == "" {
-		return fmt.Errorf("path must be defined")
+	if t.Spec.Href == "" {
+		return fmt.Errorf("href must be defined")
 	}
 	if t.Spec.Title == "" {
 		return fmt.Errorf("title must be defined")
@@ -48,20 +49,21 @@ func (t *Taxonomy) Validate() error {
 	}
 	return nil
 }
-func (t *Taxonomy) Content() string { return t.Spec.Description }
+func (t *Taxonomy) Href() string  { return t.Spec.Href }
+func (t *Taxonomy) Title() string { return t.Spec.TitleFragment }
 func (t *Taxonomy) Render(_ context.Context, r *resource.Resource) error {
-	if stat, _ := r.Dest.Stat(t.Spec.Path); stat != nil && stat.Size() != 0 {
+	if stat, _ := r.Dest.Stat(t.Spec.Href); stat != nil && stat.Size() != 0 {
 		return nil
 	}
 	content, err := r.Body()
 	if err != nil {
 		return err
 	}
-	file, createErr := r.Dest.Create(t.Spec.Path)
+	file, createErr := r.Dest.Create(t.Spec.Href)
 	if createErr != nil {
 		return createErr
 	}
-	if _, writeErr := file.Write([]byte(content)); writeErr != nil {
+	if _, writeErr := file.Write([]byte(gohtml.Format(content))); writeErr != nil {
 		return writeErr
 	}
 	return file.Close()

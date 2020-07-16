@@ -1,8 +1,0 @@
-namespace: default
-kind: core
-group: template
-version: v1
-name: synopsis
-spec:
-  body: |-
-    {{ yield }}

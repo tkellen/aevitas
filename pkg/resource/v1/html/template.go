@@ -1,11 +1,11 @@
-package core
+package html
 
 import (
 	json "github.com/json-iterator/go"
 	"github.com/tkellen/aevitas/pkg/manifest"
 )
 
-const KGVTemplate = "core/template/v1"
+const KGVTemplate = "html/template/v1"
 
 type Template struct {
 	*manifest.Manifest

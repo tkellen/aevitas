@@ -17,8 +17,8 @@ type Factory struct {
 
 // Handler represents a method of instantiating a specific resource type.
 type Handler struct {
-	Selector *manifest.Selector
-	New      func(m *manifest.Manifest) (Instance, error)
+	Selector manifest.Selector
+	New      func(m *manifest.Manifest) (interface{}, error)
 	Source   billy.Filesystem
 	Dest     billy.Filesystem
 }
@@ -39,7 +39,7 @@ func (r *Factory) String() string {
 	return strings.Join(details, "\n")
 }
 
-func (r *Factory) Register(target string, fn func(m *manifest.Manifest) (Instance, error)) error {
+func (r *Factory) Register(target string, fn func(m *manifest.Manifest) (interface{}, error)) error {
 	s, err := manifest.NewSelector(target)
 	if err != nil {
 		return err
@@ -54,10 +54,10 @@ func (r *Factory) Register(target string, fn func(m *manifest.Manifest) (Instanc
 	return nil
 }
 
-func (r *Factory) Handler(target *manifest.Selector) (*Handler, error) {
+func (r *Factory) Handler(target *manifest.Manifest) (*Handler, error) {
 	var factory *Handler
 	for _, h := range r.Handlers {
-		if h.Selector.KGV() == target.KGV() {
+		if h.Selector.KGV() == target.Selector.KGV() {
 			factory = h
 		}
 	}

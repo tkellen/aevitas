@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/tkellen/aevitas/internal/cli"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,5 +14,5 @@ func main() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
-	os.Exit(Run(os.Args, os.Stdin, os.Stdout, os.Stderr))
+	os.Exit(cli.Run(os.Args, os.Stdin, os.Stdout, os.Stderr))
 }

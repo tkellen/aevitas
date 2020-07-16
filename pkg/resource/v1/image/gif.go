@@ -30,9 +30,8 @@ func NewGif(m *manifest.Manifest) (*Gif, error) {
 	return instance, nil
 }
 
-func (img *Gif) Validate() error    { return img.Spec.validate() }
-func (img *Gif) OutputPath() string { return img.Spec.Path }
-
+func (img *Gif) Validate() error { return img.Spec.validate() }
+func (img *Gif) Href() string    { return img.Spec.href() }
 func (img *Gif) Render(ctx context.Context, r *resource.Resource) error {
 	scopedDest, scopeErr := img.Spec.scope(r.Dest)
 	if scopeErr != nil {

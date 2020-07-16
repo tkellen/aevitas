@@ -1,0 +1,25 @@
+kind: html
+group: template
+version: v1
+namespace: post
+name: layout
+meta:
+  include:
+  - resource: html/template/v1/post/taxonomy-list
+    as: list
+spec:
+  body: |-
+    <h1><a href="{{ .HrefCanonical }}">{{ .Spec.Title }}</a></h1>
+    <p class="content">
+    {{ yield }}
+    </p>
+    {{- $related := (.Related "website/taxonomy/v1/tag/*") -}}
+    {{ if $related }}
+      <h2>Tags</h2>
+      <ul>{{ template "list" $related }}</ul>
+    {{ end }}
+    {{- $eras := (.Related "website/taxonomy/v1/era/*") -}}
+    {{ if $eras }}
+      <h2>Eras</h2>
+      <ul>{{ template "list" $eras }}</ul>
+    {{ end }}

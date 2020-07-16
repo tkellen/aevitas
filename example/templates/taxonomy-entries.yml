@@ -1,0 +1,13 @@
+kind: html
+group: template
+version: v1
+namespace: taxonomy
+name: entries
+spec:
+  body: |-
+    {{ range $item := . }}
+      <li>
+        <h3><a href="{{ $item.Href }}">{{ $item.Spec.Title }}</a></h3>
+        <p class="content">{{ $item.Spec.Description }}</p>
+      </li>
+    {{ end }}

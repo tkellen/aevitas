@@ -32,9 +32,8 @@ func NewPng(m *manifest.Manifest) (*Png, error) {
 	return instance, nil
 }
 
-func (img *Png) Validate() error    { return img.Spec.validate() }
-func (img *Png) OutputPath() string { return img.Spec.Path }
-
+func (img *Png) Validate() error { return img.Spec.validate() }
+func (img *Png) Href() string    { return img.Spec.href() }
 func (img *Png) Render(ctx context.Context, r *resource.Resource) error {
 	scopedDest, scopeErr := img.Spec.scope(r.Dest)
 	if scopeErr != nil {

@@ -1,11 +1,11 @@
-namespace: default
 kind: image
 group: jpeg
 version: v1
-name: piggies
+namespace: asset
+name: nun
 meta:
-  file: piggies.jpg
+  file: testdata/asset/nun.jpg
 spec:
-  path: /image/piggies
+  hrefRoot: /image/nun
   title: none
   widths: [100,200,300]

@@ -1,0 +1,20 @@
+kind: website
+group: taxonomy
+version: v1
+namespace: era
+name: early-days
+meta:
+  include:
+  - resource: website/page/v1/post/*
+    filter:
+      related: website/taxonomy/v1/era/early-days
+    baseHref: /era/early-days/
+    templates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/core/layout
+spec:
+  title: Early Days
+  titleFragment: Early Days Of Our Lives
+  description: Entries filed under the era of "Early Days".
+  href: /era/early-days/index.html

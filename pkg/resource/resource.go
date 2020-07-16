@@ -8,24 +8,34 @@ import (
 	"fmt"
 	"github.com/go-git/go-billy/v5"
 	"github.com/tkellen/aevitas/pkg/manifest"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 	"html/template"
 	"io"
 	"io/ioutil"
+	"path"
+	"reflect"
+	"strings"
 )
 
-// Instance represents a common interface for all resource types.
-type Instance interface {
-	ID() string
-}
-
-// Rendering represents a resource instance that can be rendered.
-type Rendering interface {
+// asRenderable represents a resource instance that can be rendered.
+type asRenderable interface {
 	Render(context.Context, *Resource) error
 }
 
-// Templating represents a resource instance that can be used for templating.
-type Templating interface {
+// asContent represents a resource instance that can be used for templating.
+type asContent interface {
 	Content() string
+}
+
+// asLinkable represents a resource instance that can be linked to.
+type asLinkable interface {
+	Href() string
+}
+
+// asTitled represents a resource instance that has a title fragment.
+type asTitled interface {
+	Title() string
 }
 
 // Resource represents a resource with all associated resources and templates
@@ -35,35 +45,35 @@ type Resource struct {
 	// Manifest describes the raw data used to instantiate the resource.
 	Manifest *manifest.Manifest
 	// Root refers to first resource instantiated (which triggers instantiation
-	// of all related resources to support rendering).
+	// of all relatedTo resources to support rendering).
 	Root *Resource
 	// Parent refers to the resource that caused this to be instantiated.
 	Parent *Resource
-	// Resources can express relationships to other resources through the usage
-	// of "meta.include" and "meta.related" fields on their manifest. During
-	// instantiation, this is populated with all included/related on manifests
-	// and all those resources that with a dependency/relationship back. This
-	// makes relationships visible from "both sides" regardless of where they
-	// were declared.
-	Relations *manifest.Relations
 	// Instance holds an interface to an instantiated resource.
-	Instance Instance
+	Instance interface{}
 	// Source describes the location where backing data for the resource can be
 	// found (e.g an image file).
 	Source billy.Filesystem
 	// Dest indicates where the resource in rendered form should be written.
 	Dest billy.Filesystem
-	// During rendering of the resource all resources listed here will be
-	// rendered first.
+	// BaseHref provides a prefix that will be added to hrefs for the resource
+	// instance this wraps.
+	BaseHref string
+	// Included defines sub-resources that must be rendered to to support the
+	// rendering of this resource.
 	included []*Resource
-	// related expresses a relationships between resources that does not require
-	// rendering.
-	related []Instance
-	// templates is an array of template resources that will be applied to
-	// produce textual output for the resource.
+	// Templates defines resources that will be applied in order produce text
+	// based output for the resource (typically html).
 	templates []*Resource
-	factory *Factory
-	index *manifest.Index
+	// Resources can express relations to other resources through the usage
+	// of "meta.include" and "meta.related" fields on their manifest. During
+	// instantiation, this is populated with all included/related resources
+	// and all those resources that with a dependency/relationship back. This
+	// makes relationships visible from "both sides" regardless of where they
+	// were declared.
+	relations *manifest.Relations
+	factory   *Factory
+	index     *manifest.Index
 }
 
 // New instantiates a resource and all of its dependencies.
@@ -72,41 +82,36 @@ func New(target string, index *manifest.Index, factory *Factory) (*Resource, err
 	if getErr != nil {
 		return nil, getErr
 	}
-	// Increase speed by filtering index to items used by root element only.
-	deps, traverseErr := root.Traverse(index)
+	// Increase speed by filtering items to those used by root element only.
+	deps, traverseErr := index.Traverse(root)
 	if traverseErr != nil {
 		return nil, traverseErr
 	}
-	// Calculate relationships for entire manifest listing.
-	relations, relationsErr := append(deps, root).Relations(index)
-	if relationsErr != nil {
-		return nil, relationsErr
+	subIndex, indexErr := manifest.NewIndex(deps, true)
+	if indexErr != nil {
+		return nil, indexErr
 	}
 	return newResource(
-		root.ID(),
+		root.Selector.ID(),
 		root.Selector,
-		deps.Indexed(),
+		subIndex,
 		factory,
-		relations,
+		"",
 		nil,
 	)
 }
 
-// String returns a human readable representation of a resource.
-func (r *Resource) String() string { return r.Manifest.String() }
+// New instantiates a new resource from an existing one.
+func (r *Resource) New(name string, target *manifest.Selector, baseHref string) (*Resource, error) {
+	return newResource(name, target, r.index, r.factory, baseHref, r.Root)
+}
 
-// Body computes the content for a resource.
-func (r *Resource) Body() (template.HTML, error) {
-	var root *template.Template
-	var body string
-	var err error
-	if root, err = r.buildTemplate(nil); err != nil {
-		return "", err
+// String returns a human readable representation of a resource.
+func (r *Resource) String() string {
+	if r.Name != r.Manifest.Selector.ID() {
+		return fmt.Sprintf("%s (%s)", r.Manifest.Selector.ID(), r.Name)
 	}
-	if body, err = r.executeTemplate(root); err != nil {
-		return "", err
-	}
-	return template.HTML(body), nil
+	return r.Name
 }
 
 // Reader returns a io.ReadCloser for the data the resource points to.
@@ -129,26 +134,138 @@ func (r *Resource) Bytes(ctx context.Context) ([]byte, error) {
 }
 
 // Render recursively renders all resources associated with this resource.
-func (r *Resource) Render(ctx context.Context) error {
-	var err error
-	for _, include := range r.included {
-		if err = include.Render(ctx); err != nil {
-			break
+func (r *Resource) Render(ctx context.Context, concurrency int) error {
+	sem := semaphore.NewWeighted(int64(concurrency))
+	process, processCtx := errgroup.WithContext(ctx)
+	process.Go(func() error {
+		for _, include := range r.included {
+			if err := sem.Acquire(processCtx, 1); err != nil {
+				return err
+			}
+			include := include
+			process.Go(func() error {
+				defer sem.Release(1)
+				return include.Render(processCtx, concurrency)
+			})
 		}
-	}
-	if err == nil {
-		if resource, ok := r.Instance.(Rendering); ok {
-			err = resource.Render(ctx, r)
-		}
-	}
-	if err != nil {
+		return nil
+	})
+	if err := process.Wait(); err != nil {
 		return fmt.Errorf("%s: render: %w", r, err)
+	}
+	if resource, ok := r.Instance.(asRenderable); ok {
+		return resource.Render(ctx, r)
 	}
 	return nil
 }
 
-func (r *Resource) Related() *manifest.List {
-	return (*r.Relations)[r.Manifest]
+// Body computes the content for a resource using all associated templates.
+func (r *Resource) Body() (string, error) {
+	root, buildErr := r.template(nil)
+	if buildErr != nil {
+		return "", buildErr
+	}
+	return executeTemplate(root, r)
+}
+
+func (r *Resource) Spec() interface{} {
+	return reflect.ValueOf(r.Instance).Elem().FieldByName("Spec").Interface()
+}
+
+func (r *Resource) Title() (string, error) {
+	var titles []string
+	parent := r
+	for parent != nil {
+		titled, ok := parent.Instance.(asTitled)
+		if ok && titled.Title() != "" {
+			titles = append(titles, titled.Title())
+		}
+		parent = parent.Parent
+	}
+	if len(titles) == 0 {
+		return "", fmt.Errorf("%s has no title", r)
+	}
+	return strings.Join(titles, " | "), nil
+}
+
+func (r *Resource) HrefCanonical(lookup ...string) (string, error) {
+	target := r
+	if len(lookup) > 1 {
+		return "", fmt.Errorf("only one target allowed")
+	}
+	if len(lookup) == 1 {
+		var err error
+		if target, err = r.Get(lookup[0]); err != nil {
+			return "", err
+		}
+	}
+	if linkable, ok := target.Instance.(asLinkable); ok {
+		return linkable.Href(), nil
+	} else {
+		return "", fmt.Errorf("%s does not define a href", r)
+	}
+}
+
+func (r *Resource) Href(lookup ...string) (string, error) {
+	target := r
+	if len(lookup) > 1 {
+		return "", fmt.Errorf("only one target allowed")
+	}
+	if len(lookup) == 1 {
+		var err error
+		if target, err = r.Get(lookup[0]); err != nil {
+			return "", err
+		}
+	}
+	if linkable, ok := target.Instance.(asLinkable); ok {
+		return path.Join(r.BaseHref, linkable.Href()), nil
+	} else {
+		return "", fmt.Errorf("%s does not define a href", r)
+	}
+}
+
+func (r *Resource) Related(target string) ([]*Resource, error) {
+	s, err := manifest.NewSelector(target)
+	if err != nil {
+		return nil, err
+	}
+	related, ok := r.index.Relations[r.Manifest]
+	if !ok {
+		return nil, fmt.Errorf("no relations found for %s %s\n", r.Manifest.Selector, r.index.Relations)
+	}
+	relatedIndex, indexErr := related.Indexed(false)
+	if indexErr != nil {
+		return nil, indexErr
+	}
+	manifests, findErr := relatedIndex.Find(&s)
+	var output []*Resource
+	if findErr != nil {
+		// If the selector has wildcards we can't know for sure if any records
+		// should exist or not.
+		if s.NameIsWildcard() {
+			return output, nil
+		}
+		return nil, findErr
+	}
+	for _, item := range manifests {
+		resource, err := r.New(item.Selector.ID(), item.Selector, "")
+		if err != nil {
+			return nil, err
+		}
+		output = append(output, resource)
+	}
+	return output, err
+}
+
+func (r *Resource) Get(target string) (*Resource, error) {
+	related, err := r.Related(target)
+	if err != nil {
+		return nil, fmt.Errorf("relation: %w", err)
+	}
+	if len(related) > 1 {
+		return nil, fmt.Errorf("%s matched %d resources", target, len(related))
+	}
+	return related[0], nil
 }
 
 // newResource recursively instantiates a resources and all of its dependencies.
@@ -157,14 +274,14 @@ func newResource(
 	target *manifest.Selector,
 	index *manifest.Index,
 	factory *Factory,
-	relations *manifest.Relations,
+	baseHref string,
 	root *Resource,
 ) (*Resource, error) {
 	m, getErr := index.GetSelector(target)
 	if getErr != nil {
 		return nil, getErr
 	}
-	handler, handlerErr := factory.Handler(target)
+	handler, handlerErr := factory.Handler(m)
 	if handlerErr != nil {
 		return nil, handlerErr
 	}
@@ -172,127 +289,104 @@ func newResource(
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", m, err)
 	}
+	dest, destErr := handler.Dest.Chroot(baseHref)
+	if destErr != nil {
+		return nil, destErr
+	}
 	el := &Resource{
-		Name:      name,
-		Manifest:  m,
-		Relations: relations,
-		Root:      root,
-		Instance:  instance,
-		Source:    handler.Source,
-		Dest:      handler.Dest,
+		Name:     name,
+		Manifest: m,
+		BaseHref: baseHref,
+		Root:     root,
+		Instance: instance,
+		Source:   handler.Source,
+		Dest:     dest,
+		index:    index,
+		factory:  factory,
 	}
 	if root == nil {
 		root = el
 		el.Root = el
 	}
 	// Recursively instantiate included elements.
-	for _, include := range m.Meta.Include {
-		for _, i := range include.Expand(index) {
-			dep, err := newResource(i.As, i.Resource, index, factory, relations, root)
-			if err != nil {
-				return nil, err
-			}
-			dep.Parent = el
-			// If there are templates associated with this element, create
-			// resources for them so they can be used during rendering.
-			for _, templateSelector := range i.Templates {
-				tmpl, err := el.New(templateSelector.ID(), templateSelector)
-				if err != nil {
-					return nil, err
-				}
-				tmpl.Parent = el
-				dep.templates = append(dep.templates, tmpl)
-			}
-			el.included = append(el.included, dep)
+	if err := m.EachInclude(index, func(include *manifest.Include) error {
+		dep, err := el.New(include.As, include.Resource, include.BaseHref)
+		if err != nil {
+			return err
 		}
+		dep.Parent = el
+		// If there are templates associated with this element, create
+		// resources for them so they can be used during rendering.
+		for _, templateSelector := range include.Templates {
+			tmpl, err := el.New(templateSelector.ID(), templateSelector, "")
+			if err != nil {
+				return err
+			}
+			tmpl.Parent = el
+			dep.templates = append(dep.templates, tmpl)
+		}
+		el.included = append(el.included, dep)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return el, nil
 }
 
-// buildTemplate recursively builds a template capable of rendering content for
-// the resource.
-func (r *Resource) buildTemplate(root *template.Template) (*template.Template, error) {
+// template recursively collects all templates needed to render content for the
+// resource.
+func (r *Resource) template(root *template.Template) (*template.Template, error) {
 	if root == nil {
 		root = template.New(r.Name).Funcs(template.FuncMap{
 			"yield": func() (error, error) {
-				return nil, errors.New("no supporting layout")
+				return nil, errors.New("no yield content available yet")
 			},
 		})
 	} else if root.Lookup(r.Name) != nil {
-		// Return early if the root template already contains the result for
-		// this element.
-		return root, nil
+		// If the same template is used more than once during the rendering of
+		// a given resource, don't compute it twice.
+		return root.Lookup(r.Name), nil
 	}
 	var err error
-	// Add templates from all dependencies to the root template.
+	// Compute templates for all dependencies so their rendered output can be
+	// used to render this resource.
 	for _, dep := range r.included {
-		if root, err = dep.buildTemplate(root); err != nil {
+		if root, err = dep.template(root); err != nil {
 			return nil, err
 		}
 	}
-	// If there are a templates associated with this element, recursively add
-	// them and their dependencies to the root template.
+	// If the resource embeds content, assign that content as the "yield" body
+	// so templates can wrap it.
+	var yield string
+	if resource, ok := r.Instance.(asContent); ok {
+		yield = resource.Content()
+	}
+	// If this resource is viewed through a template, render those templates
+	// with this resource as context.
 	for _, tmpl := range r.templates {
-		if root, err = tmpl.buildTemplate(root); err != nil {
+		if root, err = tmpl.template(root); err != nil {
 			return nil, err
 		}
-	}
-	// If there is no template "wrapping" this element, and the element's
-	// resource embeds template content, add that content and return early.
-	if resource, ok := r.Instance.(Templating); ok {
-		return root.New(r.Name).Parse(resource.Content());
-	}
-	// Render a string value for this element using the accumulated templates.
-	var content string
-	if content, err = r.executeTemplate(root); err != nil {
-		return nil, err
-	}
-	// Make a rendered version of the element accessible under its name.
-	return root.New(r.Name).Parse(content)
-}
-
-// executeTemplate renders the provided template using the element as context.
-func (r *Resource) executeTemplate(tmpl *template.Template) (string, error) {
-	if tmpl == nil {
-		return "", fmt.Errorf("%s: executeTemplate with nil template", r)
-	}
-	var temp *template.Template
-	var err error
-	var buf bytes.Buffer
-	// Make a clone of this template so it can be executed without preventing
-	// further templates from being added by the caller.
-	if temp, err = tmpl.Clone(); err != nil {
-		return "", err
-	}
-	if err := temp.Execute(&buf, r); err != nil {
-		return "", err
-	}
-	return r.applyTemplates(tmpl, buf.String())
-}
-
-// applyLayouts recursively applies layout templates.
-func (r *Resource) applyTemplates(root *template.Template, yieldContent string) (string, error) {
-	var temp *template.Template
-	var err error
-	var buf bytes.Buffer
-	content := yieldContent
-	for _, tmpl := range r.templates {
-		buf.Reset()
-		// Make a clone of this template so it can be executed without preventing
-		// further templates from being added by the caller.
-		if temp, err = root.Clone(); err != nil {
-			return "", err
-		}
-		if err = temp.Lookup(tmpl.Name).Funcs(template.FuncMap{
+		if yield, err = executeTemplate(root.Funcs(template.FuncMap{
 			"yield": func() template.HTML {
-				return template.HTML(content)
+				return template.HTML(yield)
 			},
-		}).Execute(&buf, r); err != nil {
-			return "", err
-		}
-		if content, err = tmpl.applyTemplates(root, buf.String()); err != nil {
-			return "", err
+		}), r); err != nil {
+			return nil, err
 		}
 	}
-	return content, nil
+	// Save the output.
+	return root.New(r.Name).Parse(yield)
+}
+
+func executeTemplate(root *template.Template, context *Resource) (string, error) {
+	var buf bytes.Buffer
+	temp, err := root.Clone()
+	if err != nil {
+		return "", err
+	}
+	if err := temp.Execute(&buf, context); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

@@ -52,3 +52,4 @@ func (d *Domain) Validate() error {
 	}
 	return nil
 }
+func (d *Domain) Title() string { return d.Spec.Title }

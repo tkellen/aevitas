@@ -1,19 +1,20 @@
-namespace: default
 kind: website
 group: page
 version: v1
-name: post-two
+namespace: post
+name: two
 meta:
   include:
-  - resource: default/image/jpeg/v1/nun
-    templates: [default/core/template/v1/responsive-image]
+  - resource: image/jpeg/v1/asset/nun
+    templates: [html/template/v1/core/responsive-image]
     as: nun
   related:
-  - default/website/taxonomy/v1/worst-moments
-  - default/website/taxonomy/v1/favorite-days
+  - website/taxonomy/v1/tag/worst-moments
+  - website/taxonomy/v1/tag/favorite-days
+  - website/taxonomy/v1/era/early-days
 spec:
-  path: page-two.html
-  title: page two
+  href: /two.html
+  title: The Second Post Ever
   body: |-
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam in elementum dolor. Suspendisse semper, eros eget ultrices suscipit, sapien diam scelerisque ligula, et sollicitudin dolor nulla in sem. Etiam tellus sapien, sagittis eu justo vel, tincidunt laoreet mauris. Praesent in scelerisque ante. Fusce ac felis eget eros mattis vehicula. Praesent mattis ligula vitae urna dictum tincidunt. Nullam pellentesque nulla et lorem vulputate finibus. Aliquam interdum massa non sollicitudin congue. Curabitur lobortis dui eu faucibus semper. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Mauris porta elit a tortor fringilla tincidunt.</p>
     {{ template "nun" }}

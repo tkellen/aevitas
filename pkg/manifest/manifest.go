@@ -14,8 +14,8 @@ import (
 
 // Manifest defines the data that is used to instantiate a resource.
 type Manifest struct {
-	*Selector
-	Meta *Meta
+	Selector *Selector
+	Meta     *Meta
 	// Spec contains a json-encoded byte array holding details specific to the
 	// KGV (Kind Group Version) of the manifest.
 	Spec json.RawMessage
@@ -27,9 +27,63 @@ type Manifest struct {
 // it can be found.
 type Meta struct {
 	File    string
-	Related *SelectorList
+	Related []*Selector
 	// Includes allows a manifest to express a dependency on other resources.
 	Include []*Include
+}
+
+// Include describes how a manifest can depend on other manifests.
+type Include struct {
+	// Resource points to a resource that is required for rendering the
+	// manifest this import belongs to.
+	Resource *Selector
+	// Templates optionally points to resources that should be used as a "view"
+	// of the resource.
+	Templates []*Selector
+	// As provides an alternative name for referring to the imported resource.
+	As string
+	// An optional prefix for the resource this points to.
+	BaseHref string
+	// A filter to limit the matches on a wildcard selector for resource
+	Filter *Filter
+}
+
+// Filter describes how manifest dependencies can be filtered.
+type Filter struct {
+	Related *Selector
+}
+
+// New creates a manifest from a json-encoded byte array or a yaml-front-matter
+// having byte array. If frontmatter is found, the content below it is assigned
+// to `.Spec.Body` (overwriting any content that may be there).
+func New(manifest []byte) (*Manifest, error) {
+	var delim = []byte("---")
+	var err error
+	body := append([]byte{}, manifest...)
+	// Process front-matter, if any.
+	if bytes.HasPrefix(body, delim) {
+		parts := bytes.SplitN(body, delim, 3)
+		if body, err = yaml.YAMLToJSON(parts[1]); err != nil {
+			return nil, err
+		}
+		if len(parts[2]) > 0 {
+			if body, err = sjson.SetBytes(body, "spec.body", parts[2]); err != nil {
+				return nil, err
+			}
+		}
+	}
+	var m Manifest
+	if err = json.Unmarshal(body, &m); err != nil {
+		return nil, fmt.Errorf("json unmarshal: %w", err)
+	}
+	m.Raw = manifest
+	if m.Meta == nil {
+		m.Meta = &Meta{}
+	}
+	if err := m.Validate(); err != nil {
+		return nil, err
+	}
+	return &m, nil
 }
 
 // NewFromFile creates a manifest from a source file.
@@ -51,96 +105,26 @@ func NewFromFile(filepath string) (*Manifest, error) {
 	return manifest, nil
 }
 
-// New creates a manifest from a json-encoded byte array or a yaml-front-matter
-// having byte array. If frontmatter is found, the content below it is assigned
-// to `.Spec.Body` (overwriting any content that may be there).
-func New(manifest []byte) (*Manifest, error) {
-	var delim = []byte("---")
-	var err error
-	var m Manifest
-	// Process front-matter, if any.
-	if bytes.HasPrefix(manifest, delim) {
-		parts := bytes.SplitN(manifest, delim, 3)
-		if manifest, err = yaml.YAMLToJSON(parts[1]); err != nil {
-			return nil, err
-		}
-		if len(parts[2]) > 0 {
-			if manifest, err = sjson.SetBytes(manifest, "spec.body", parts[2]); err != nil {
-				return nil, err
+// Validate does just what you think it does.
+func (m *Manifest) Validate() error {
+	for _, i := range m.Meta.Include {
+		for _, tmpl := range i.Templates {
+			if tmpl.NameIsWildcard() {
+				return fmt.Errorf("template selector cannot be wildcard")
 			}
 		}
-	}
-	if err = json.Unmarshal(manifest, &m); err != nil {
-		return nil, fmt.Errorf("json unmarshal: %w", err)
-	}
-	if err = m.Validate(); err != nil {
-		return nil, fmt.Errorf("%s: validate failed: %w", m, err)
-	}
-	if m.Meta == nil {
-		m.Meta = &Meta{}
-	}
-	return &m, nil
-}
-
-// Validate ensures a resource has the minimum required fields.
-func (m *Manifest) Validate() error {
-	if len(m.Spec) == 0 {
-		return fmt.Errorf("spec must be defined")
+		if i.As != "" && i.Resource != nil && i.Resource.NameIsWildcard() {
+			return fmt.Errorf("wildcard selectors cannot be aliased")
+		}
 	}
 	return nil
 }
 
-// Get list of manifests for of every related and included resource.
-func (m *Manifest) Related(index *Index) (List, error) {
-	related := List{}
-	if len(m.Meta.Include) > 0 {
-		for _, include := range m.Meta.Include {
-			for _, selector := range append(include.Templates, include.Resource) {
-				if selector != nil {
-					manifests, findErr := index.Find(SelectorList{selector})
-					if findErr != nil {
-						return nil, findErr
-					}
-					related = append(related, manifests...)
-				}
-			}
-		}
-	}
-	if m.Meta.Related != nil {
-		for _, selector := range *m.Meta.Related {
-			manifests, findErr := index.Find(SelectorList{selector})
-			if findErr != nil {
-				return nil, findErr
-			}
-			related = append(related, manifests...)
-		}
-	}
-	return related, nil
-}
-
 // String returns the ID of the resource and the entire manifest that it was
 // instantiated with.
-func (m *Manifest) String() string { return fmt.Sprintf("%s: %s", m.ID(), m.Raw) }
+func (m *Manifest) String() string { return fmt.Sprintf("%s: %s", m.Selector.ID(), m.Raw) }
 
-// KGV is a convenience function that returns the KGV of the resource selector.
-func (m *Manifest) KGV() string { return m.Selector.KGV() }
-
-// NKGV is a convenience function that returns the NKGV of the resource selector.
-func (m *Manifest) NKGV() string { return m.Selector.NKGV() }
-
-// ID is a convenience function that returns the ID of the resource selector.
-func (m *Manifest) ID() string { return m.Selector.ID() }
-
-func (m *Manifest) Traverse(index *Index) (List, error) {
-	if index == nil {
-
-	}
-	return index.traverse(List{m}, nil)
-}
-
-// UnmarshalJSON handles the fact that embedding a struct (in this case
-// selector.Selector) makes golang use the wrong unmarshalling implementation
-// for the outer struct.
+// UnmarshalJSON does just what you think it does.
 func (m *Manifest) UnmarshalJSON(data []byte) error {
 	var temp struct {
 		Kind      string
@@ -154,21 +138,70 @@ func (m *Manifest) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return fmt.Errorf("json unmarshal: %w", err)
 	}
-	s := &Selector{
-		Kind:      temp.Kind,
-		Group:     temp.Group,
-		Version:   temp.Version,
-		Name:      temp.Name,
-		Namespace: temp.Namespace,
-	}
-	if err := s.Validate(); err != nil {
+	s, err := NewSelector(fmt.Sprintf("%s/%s/%s/%s/%s", temp.Kind, temp.Group, temp.Version, temp.Namespace, temp.Name))
+	if err != nil {
 		return err
 	}
 	*m = Manifest{
-		Selector: s,
+		Selector: &s,
 		Meta:     temp.Meta,
 		Spec:     temp.Spec,
 		Raw:      data,
+	}
+	return nil
+}
+
+// Get list of required selectors for every related and included resource.
+func (m *Manifest) Required() []*Selector {
+	var selectors []*Selector
+	// Collect all selectors found in m.Meta
+	if len(m.Meta.Include) > 0 {
+		for _, include := range m.Meta.Include {
+			selectors = append(append(selectors, include.Templates...), include.Resource)
+		}
+	}
+	if m.Meta.Related != nil {
+		selectors = append(selectors, m.Meta.Related...)
+	}
+	return selectors
+}
+
+// IterateIncluded calls an iterator function for every valid included resource.
+func (m *Manifest) EachInclude(index *Index, fn func(*Include) error) error {
+	if m.Meta.Include == nil {
+		return nil
+	}
+	for _, include := range m.Meta.Include {
+		if include.Resource.NameIsWildcard() {
+			// Error ignored because wildcard selector is valid with no matches.
+			manifests, _ := index.Find(include.Resource)
+			for _, manifest := range manifests {
+				// If filtering, skip resources that don't match.
+				if include.Filter != nil && include.Filter.Related != nil {
+					keep := false
+					for _, item := range manifest.Meta.Related {
+						if keep = include.Filter.Related.Matches(*item); keep {
+							break
+						}
+					}
+					if !keep {
+						continue
+					}
+				}
+				if err := fn(&Include{
+					Resource:  manifest.Selector,
+					BaseHref:  include.BaseHref,
+					Templates: include.Templates,
+					As:        manifest.Selector.ID(),
+				}); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		if err := fn(include); err != nil {
+			return err
+		}
 	}
 	return nil
 }

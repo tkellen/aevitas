@@ -33,9 +33,8 @@ func NewJpeg(m *manifest.Manifest) (*Jpeg, error) {
 	return instance, nil
 }
 
-func (img *Jpeg) Validate() error    { return img.Spec.validate() }
-func (img *Jpeg) OutputPath() string { return img.Spec.Path }
-
+func (img *Jpeg) Validate() error { return img.Spec.validate() }
+func (img *Jpeg) Href() string    { return img.Spec.href() }
 func (img *Jpeg) Render(ctx context.Context, r *resource.Resource) error {
 	scopedDest, scopeErr := img.Spec.scope(r.Dest)
 	if scopeErr != nil {

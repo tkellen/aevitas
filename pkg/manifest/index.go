@@ -13,15 +13,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 )
 
-// List holds an array of manifests.
-type List []*Manifest
-
-// NewListFromReader creates a List from a provided reader taking the assumption
-// that the reader contains one manifest per line.
-func NewListFromReader(input io.Reader) (List, error) {
+// AllFromReader creates an array of manifests from a provided reader taking the
+// assumption that the reader contains one manifest per line.
+func AllFromReader(input io.Reader) ([]*Manifest, error) {
 	reader := bufio.NewReader(input)
 	queue := make(chan *Manifest)
 	process := errgroup.Group{}
@@ -29,6 +25,9 @@ func NewListFromReader(input io.Reader) (List, error) {
 		raw, err := reader.ReadBytes('\n')
 		if errors.Is(err, io.EOF) {
 			break
+		}
+		if len(bytes.TrimSpace(raw)) == 0 {
+			continue
 		}
 		process.Go(func() error {
 			manifest, err := New(bytes.TrimRight(raw, "\n"))
@@ -39,24 +38,25 @@ func NewListFromReader(input io.Reader) (List, error) {
 			return nil
 		})
 	}
-	collector := sync.WaitGroup{}
-	collector.Add(1)
-	manifests := List{}
-	go func() {
-		defer collector.Done()
+	collector := errgroup.Group{}
+	var manifests []*Manifest
+	collector.Go(func() error {
 		for manifest := range queue {
 			manifests = append(manifests, manifest)
 		}
-	}()
+		return nil
+	})
 	if err := process.Wait(); err != nil {
-		return List{}, err
+		return nil, err
 	}
 	close(queue)
 	collector.Wait()
 	return manifests, nil
 }
 
-func NewListFromDirectory(dir string) (List, error) {
+// AllFromReader creates an array of manifests from a provided directory by
+// traversing every file in every directory from a specified parent.
+func AllFromDirectory(dir string) ([]*Manifest, error) {
 	queue := make(chan *Manifest)
 	process, processCtx := errgroup.WithContext(context.Background())
 	sem := semaphore.NewWeighted(10)
@@ -81,173 +81,144 @@ func NewListFromDirectory(dir string) (List, error) {
 			return nil
 		})
 	})
-	collector := sync.WaitGroup{}
-	collector.Add(1)
-	manifests := List{}
-	go func() {
-		defer collector.Done()
+	collector := errgroup.Group{}
+	var manifests []*Manifest
+	collector.Go(func() error {
 		for manifest := range queue {
 			manifests = append(manifests, manifest)
 		}
-	}()
+		return nil
+	})
 	if err := process.Wait(); err != nil {
-		return List{}, err
+		return nil, err
 	}
 	close(queue)
 	collector.Wait()
 	return manifests, nil
 }
 
-// String produces a human readable representation of what a List contains.
-func (l List) String() string {
-	return l.Indexed().String()
+// List holds an array of manifests.
+type List struct {
+	Manifests []*Manifest
+	ByID      map[string]*Manifest
 }
 
-// Index converts a List into an Index.
-func (l List) Indexed() *Index {
-	var shard *IndexShard
-	index := Index{}
-	for _, manifest := range l {
-		nkgv := manifest.NKGV()
-		if _, ok := index[nkgv]; !ok {
-			index[nkgv] = &IndexShard{
-				Manifests: &List{},
-				ById:      map[string]*Manifest{},
-			}
-		}
-		shard = index[nkgv]
-		*shard.Manifests = append(*shard.Manifests, manifest)
-		shard.ById[manifest.ID()] = manifest
+// NewList does just what you think it does.
+func NewList() *List {
+	return &List{
+		Manifests: []*Manifest{},
+		ByID:      map[string]*Manifest{},
 	}
-	return &index
 }
 
-func (l List) Relations(index *Index) (*Relations, error) {
-	relations := make(Relations, len(l))
-	// Instantiate a list to hold relations for every manifest.
-	for _, manifest := range l {
-		relations[manifest] = &List{}
-	}
-	// Record each manifest relationship on both sides regardless of which side
-	// it was actually recorded on.
-	for _, source := range l {
-		targets, err := source.Related(index)
-		if err != nil {
-			return nil, err
+// Insert adds N manifests to a provided list failing if a manifest of the same
+// ID has been previously inserted.
+func (l *List) Insert(manifests ...*Manifest) error {
+	for _, manifest := range manifests {
+		id := manifest.Selector.ID()
+		if _, ok := l.ByID[id]; ok {
+			return fmt.Errorf("%s: duplicate entry", manifest.Selector)
 		}
-		if len(targets) > 0 {
-			*relations[source] = append(*relations[source], targets...)
-			for _, target := range targets {
-				if _, ok := relations[target]; ok {
-					*relations[target] = append(*relations[target], source)
-				} else {
-					fmt.Fprintf(os.Stdout, "missing target %s\n", target)
-				}
-
-			}
-		}
+		l.ByID[id] = manifest
+		l.Manifests = append(l.Manifests, manifest)
 	}
-	return &relations, nil
+	return nil
 }
 
-// Index is a map of manifests keyed by NKGV and ID for fast lookups.
-type Index map[string]*IndexShard
-
-// Relations is a map of Lists keyed by manifest that record relationships
-// between manifests.
-type Relations map[*Manifest]*List
-
-type IndexShard struct {
-	Manifests *List
-	ById      map[string]*Manifest
+// Indexed produces a sharded representation of all items in the list aimed at
+// making searches fast.
+func (l *List) Indexed(withRelations bool) (*Index, error) {
+	return NewIndex(l.Manifests, withRelations)
 }
 
-// String returns the count for each unique key/group/version in an Index.
+// Index provides fast lookups for finding resources during rendering.
+type Index struct {
+	// Manifests sharded by KGVN
+	Shards    map[string]*List
+	Relations Relations
+}
+
+// String returns the count for each shard.
 func (il Index) String() string {
 	format := "%-45s%v"
 	totals := []string{fmt.Sprintf(format, "INDEX SHARD", "COUNT")}
 	var shards []string
-	for shard := range il {
+	for shard := range il.Shards {
 		shards = append(shards, shard)
 	}
 	sort.Strings(shards)
 	for _, shard := range shards {
-		totals = append(totals, fmt.Sprintf(format, shard, len(*il[shard].Manifests)))
+		totals = append(totals, fmt.Sprintf(format, shard, len(il.Shards[shard].Manifests)))
 	}
 	return strings.Join(totals, "\n")
 }
 
-// Get finds a single resource using a string target.
-func (il *Index) Get(target string) (*Manifest, error) {
-	s, selectorErr := NewSelector(target)
-	if selectorErr != nil {
-		return nil, selectorErr
+// Index creates an indexed listing aimed at supporting fast lookups during
+// rendering.
+func NewIndex(list []*Manifest, withRelations bool) (*Index, error) {
+	index := &Index{
+		Shards: map[string]*List{},
 	}
-	return il.GetSelector(s)
-}
-
-// GetSelector finds a single resource using a selector.
-func (il *Index) GetSelector(target *Selector) (*Manifest, error) {
-	nkgv := target.NKGV()
-	id := target.ID()
-	shard, ok := (*il)[nkgv]
-	if !ok {
-		return nil, fmt.Errorf("no manifests in shard %s", target)
+	for _, manifest := range list {
+		// Shard index by kind group version namespace
+		shardKey := manifest.Selector.KGVN()
+		shard, ok := index.Shards[shardKey]
+		if !ok {
+			index.Shards[shardKey] = NewList()
+			shard = index.Shards[shardKey]
+		}
+		if err := shard.Insert(manifest); err != nil {
+			return nil, err
+		}
 	}
-	resource, found := shard.ById[id]
-	if !found {
-		return nil, fmt.Errorf("%s not found\n%s", id, il)
-	}
-	return resource, nil
-}
-
-// Find produces a List that contains manifests whose IDs match the provided
-// selectors.
-func (il *Index) Find(selectors SelectorList) (List, error) {
-	matches := List{}
-	// Save references to KGVs that have been entirely collected so they aren't
-	// collected more than once.
-	collectEntireKGV := map[string]struct{}{}
-	// Sorting ensures that wildcard NKGV selectors appear first.
-	sort.Sort(selectors)
-	for _, s := range selectors {
-		entireKgv := s.IsWildcard()
-		nkgv := s.NKGV()
-		if shard, ok := (*il)[nkgv]; ok {
-			// If a selector targets an entire NKGV, append all of its manifests
-			// without iterating them individually.
-			if entireKgv {
-				if _, ok := collectEntireKGV[nkgv]; !ok {
-					matches = append(matches, *shard.Manifests...)
-					collectEntireKGV[nkgv] = struct{}{}
+	// If requested, record each manifest relationship on both sides regardless
+	// of which side it was recorded on.
+	if withRelations {
+		relations := Relations{}
+		for _, manifest := range list {
+			relations[manifest] = NewList()
+		}
+		for _, manifest := range list {
+			for _, relatedSelector := range manifest.Meta.Related {
+				related, err := index.Find(relatedSelector)
+				if err != nil {
+					return nil, err
 				}
-				continue
+				// Ignore duplicate insertion errors, this is allowed.
+				_ = relations[manifest].Insert(related...)
 			}
-			// If selector does not target entire NKGV, but this NKGV has been
-			// entirely selected already, skip this.
-			if _, ok := collectEntireKGV[nkgv]; ok {
-				continue
-			}
-			// Otherwise, look for a match by ID in the NKGV shard.
-			if match, ok := shard.ById[s.ID()]; ok {
-				matches = append(matches, match)
-				continue
+			if err := manifest.EachInclude(index, func(include *Include) error {
+				target, err := index.GetSelector(include.Resource)
+				if err != nil {
+					return err
+				}
+				// Ensure relationships are visible from both sides.
+				// Ignore duplicate insertion errors.
+				_ = relations[manifest].Insert(target)
+				_ = relations[target].Insert(manifest)
+				return nil
+			}); err != nil {
+				return nil, err
 			}
 		}
-		return nil, fmt.Errorf("not present in index: %s\n%s", s, il)
+		index.Relations = relations
 	}
-	return matches, nil
+	return index, nil
 }
 
-// traverse recursively produces a full list of manifests imports for a supplied
-// array of parents.
-func (il *Index) traverse(parents List, visited map[string]struct{}) (List, error) {
-	var result List
+// Traverse recursively produces an array of manifests required to render a
+// supplied manifest.
+func (il *Index) Traverse(manifest *Manifest) ([]*Manifest, error) {
+	return il.traverse([]*Manifest{manifest}, nil)
+}
+
+func (il *Index) traverse(parents []*Manifest, visited map[string]struct{}) ([]*Manifest, error) {
+	var result []*Manifest
 	if visited == nil {
 		visited = map[string]struct{}{}
 	}
-	for _, item := range parents {
-		id := item.ID()
+	for _, manifest := range parents {
+		id := manifest.Selector.ID()
 		// Increase speed (and prevent infinite recursion on cyclic deps) by
 		// remembering each manifest that has been visited and skipping if it
 		// is seen more than once.
@@ -257,18 +228,82 @@ func (il *Index) traverse(parents List, visited map[string]struct{}) (List, erro
 			visited[id] = struct{}{}
 		}
 		// Save parent manifest in the results.
-		result = append(result, item)
-		// Find manifest for each dependency and related resource.
-		children, relateErr := item.Related(il)
-		if relateErr != nil {
-			return nil, relateErr
+		result = append(result, manifest)
+		// Get all selectors to other manifests required to render this.
+		var deps []*Manifest
+		for _, selector := range manifest.Required() {
+			matches, findErr := il.Find(selector)
+			if findErr != nil {
+				return nil, findErr
+			}
+			deps = append(deps, matches...)
 		}
 		// Recurse through all child dependencies.
-		deps, err := il.traverse(children, visited)
+		children, err := il.traverse(deps, visited)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, deps...)
+		result = append(result, children...)
 	}
 	return result, nil
+}
+
+// Get finds a single resource using a string target.
+func (il *Index) Get(target string) (*Manifest, error) {
+	s, selectorErr := NewSelector(target)
+	if selectorErr != nil {
+		return nil, selectorErr
+	}
+	return il.GetSelector(&s)
+}
+
+// GetSelector finds a single resource using a selector target.
+func (il *Index) GetSelector(target *Selector) (*Manifest, error) {
+	shardKey := target.KGVN()
+	id := target.ID()
+	shard, ok := il.Shards[shardKey]
+	if !ok {
+		return nil, fmt.Errorf("no manifests in shard %s", shardKey)
+	}
+	resource, found := shard.ByID[id]
+	if !found {
+		return nil, fmt.Errorf("%s not found\n%s", id, il)
+	}
+	return resource, nil
+}
+
+// Find produces a List that contains manifests whose IDs match the provided
+// selectors.
+func (il *Index) Find(target *Selector) ([]*Manifest, error) {
+	shard, exists := il.Shards[target.KGVN()]
+	if exists {
+		// If a selector targets an entire shard, append all of its manifests
+		// without iterating them individually.
+		if target.NameIsWildcard() {
+			return shard.Manifests, nil
+		}
+		// Otherwise, look for a match by ID.
+		if match, ok := shard.ByID[target.ID()]; ok {
+			return []*Manifest{match}, nil
+		}
+	}
+	return nil, fmt.Errorf("%s: not present\n%s", target, il)
+}
+
+// Relations describes all manifests that are related to a given manifest.
+type Relations map[*Manifest]*List
+
+func (r Relations) String() string {
+	format := "%-45s%v"
+	output := []string{fmt.Sprintf(format, "MANIFEST", "RELATED")}
+	for item, relations := range r {
+		var related []string
+		for _, item := range relations.Manifests {
+			related = append(related, item.Selector.ID())
+		}
+		sort.Strings(related)
+		output = append(output, fmt.Sprintf(format, item.Selector.ID(), strings.Join(related, ", ")))
+	}
+	sort.Strings(output)
+	return strings.Join(output, "\n")
 }

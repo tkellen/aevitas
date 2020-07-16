@@ -10,10 +10,10 @@ import (
 )
 
 type imageSpec struct {
-	Title  string
-	Widths []int
-	Path   string
-	Domain string
+	Title    string
+	Widths   []int
+	HrefRoot string
+	Domain   string
 }
 
 func (s *imageSpec) validate() error {
@@ -21,8 +21,8 @@ func (s *imageSpec) validate() error {
 	if s.Title == "" {
 		errs = append(errs, "title must be defined")
 	}
-	if s.Path == "" {
-		errs = append(errs, "path must be defined")
+	if s.HrefRoot == "" {
+		errs = append(errs, "hrefRoot must be defined")
 	}
 	if len(s.Widths) == 0 {
 		errs = append(errs, "widths must be defined as an array")
@@ -34,7 +34,7 @@ func (s *imageSpec) validate() error {
 }
 
 func (s *imageSpec) scope(fs billy.Filesystem) (billy.Filesystem, error) {
-	return fs.Chroot(s.Path)
+	return fs.Chroot(s.HrefRoot)
 }
 
 func (s *imageSpec) current(fs billy.Filesystem) bool {
@@ -49,8 +49,7 @@ func (s *imageSpec) current(fs billy.Filesystem) bool {
 }
 
 func (s *imageSpec) render(ctx context.Context, render func(int) error) error {
-	// Compute all sizes simultaneously. This may need to be gated further but
-	// attempting to do so from the caller first.
+	// Compute all sizes simultaneously.
 	eg, egCtx := errgroup.WithContext(ctx)
 	for _, width := range s.Widths {
 		width := width
@@ -63,4 +62,14 @@ func (s *imageSpec) render(ctx context.Context, render func(int) error) error {
 		})
 	}
 	return eg.Wait()
+}
+
+func (s *imageSpec) href() string {
+	maxWidth := s.Widths[0]
+	for _, v := range s.Widths {
+		if v > maxWidth {
+			maxWidth = v
+		}
+	}
+	return fmt.Sprintf("%s/%d", s.HrefRoot, maxWidth)
 }

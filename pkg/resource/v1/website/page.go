@@ -6,6 +6,7 @@ import (
 	json "github.com/json-iterator/go"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"github.com/tkellen/aevitas/pkg/resource"
+	"github.com/yosssi/gohtml"
 )
 
 const KGVPage = "website/page/v1"
@@ -16,10 +17,10 @@ type Page struct {
 }
 
 type PageSpec struct {
-	Path  string
-	Title string
-	Description   string
-	Body  string
+	Title       string
+	Description string
+	Href        string
+	Body        string
 }
 
 func NewPage(m *manifest.Manifest) (*Page, error) {
@@ -43,8 +44,8 @@ func NewPage(m *manifest.Manifest) (*Page, error) {
 }
 
 func (p *Page) Validate() error {
-	if p.Spec.Path == "" {
-		return fmt.Errorf("path must be defined")
+	if p.Spec.Href == "" {
+		return fmt.Errorf("href must be defined")
 	}
 	if p.Spec.Title == "" {
 		return fmt.Errorf("title must be defined")
@@ -57,20 +58,22 @@ func (p *Page) Validate() error {
 	}
 	return nil
 }
-func (p *Page) Content() string    { return p.Spec.Body }
+func (p *Page) Content() string { return p.Spec.Body }
+func (p *Page) Href() string    { return p.Spec.Href }
+func (p *Page) Title() string   { return p.Spec.Title }
 func (p *Page) Render(_ context.Context, r *resource.Resource) error {
-	if stat, _ := r.Dest.Stat(p.Spec.Path); stat != nil && stat.Size() != 0 {
+	if stat, _ := r.Dest.Stat(p.Spec.Href); stat != nil && stat.Size() != 0 {
 		return nil
 	}
 	content, err := r.Body()
 	if err != nil {
 		return err
 	}
-	file, createErr := r.Dest.Create(p.Spec.Path)
+	file, createErr := r.Dest.Create(p.Spec.Href)
 	if createErr != nil {
 		return createErr
 	}
-	if _, writeErr := file.Write([]byte(content)); writeErr != nil {
+	if _, writeErr := file.Write([]byte(gohtml.Format(content))); writeErr != nil {
 		return writeErr
 	}
 	return file.Close()

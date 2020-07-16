@@ -1,0 +1,10 @@
+kind: html
+group: template
+version: v1
+namespace: post
+name: taxonomy-list
+spec:
+  body: |-
+    {{ range $item := . }}
+      <li><a href="{{ $item.Href }}">{{ $item.Spec.Title }}</a></li>
+    {{ end }}
