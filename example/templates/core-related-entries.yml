@@ -1,8 +1,8 @@
 kind: html
 group: template
 version: v1
-namespace: taxonomy
-name: entries
+namespace: core
+name: related-entries
 spec:
   body: |-
     {{ range $item := . }}

@@ -1,0 +1,9 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: image-layout
+spec:
+  body: |-
+    <h1>{{ .Title }}</h1>
+    {{yield}}

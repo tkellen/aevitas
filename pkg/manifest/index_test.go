@@ -7,29 +7,6 @@ import (
 	"testing"
 )
 
-func TestNewListFromDirectory(t *testing.T) {
-	list, err := manifest.AllFromDirectory("../../example/templates")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(list) != 8 {
-		t.Fatal("expected 8 items, this test is junk.")
-	}
-}
-
-func TestNewListFromReader(t *testing.T) {
-	list, err := manifest.AllFromReader(bytes.NewReader([]byte(`
-      {"kind":"k","group":"g","version":"v","namespace":"ns","name":"first"}
-	  {"kind":"k","group":"g","version":"v","namespace":"ns","name":"second"}
-    `)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(list) != 2 {
-		t.Fatal("expected 2 items, this test is junk")
-	}
-}
-
 func TestList_IndexShards(t *testing.T) {
 	s := map[string]*manifest.Selector{
 		"kgv1aa": {Kind: "k", Group: "g", Version: "v1", Namespace: "a", Name: "a"},
@@ -56,7 +33,7 @@ func TestList_IndexShards(t *testing.T) {
 		list.Insert(manifest)
 	}
 	expected := manifest.Index{
-		Shards: map[string]*manifest.List{
+		Shard: map[string]*manifest.List{
 			"k/g/v1/a": {
 				Manifests: []*manifest.Manifest{m["kgv1aa"], m["kgv1ab"]},
 				ByID: map[string]*manifest.Manifest{

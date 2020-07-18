@@ -15,7 +15,7 @@ import (
 
 type RenderCmd struct {
 	Load        []string `name:"load" short:"l" type:"existingdir" help:"Directory containing manifests."`
-	Concurrency int      `help:"Control how many parallel renders can be run" default:10`
+	Concurrency int      `help:"Control how many parallel renders can be run" default:5`
 	AssetRoot   string   `required name:"asset" short:"a" type:"existingdir" help:"Root path to assets." default:"${cwd}"`
 	Output      string   `required name:"output" short:"o" help:"Path for output."`
 	Selector    string   `arg required name:"selector" help:"Manifest to render."`
@@ -26,7 +26,7 @@ func (r *RenderCmd) Run(ctx *Context) error {
 	var manifests []*manifest.Manifest
 	// Collect any manifests provided over standard in.
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		list, err := manifest.AllFromReader(ctx.Stdin)
+		list, err := manifest.NewFromReader(ctx.Stdin)
 		if err != nil {
 			return err
 		}
@@ -34,13 +34,13 @@ func (r *RenderCmd) Run(ctx *Context) error {
 	}
 	// Collect manifests in provided paths.
 	for _, path := range r.Load {
-		list, err := manifest.AllFromDirectory(path)
+		list, err := manifest.NewFromDirectory(path)
 		if err != nil {
 			return err
 		}
 		manifests = append(manifests, list...)
 	}
-	index, indexErr := manifest.NewIndex(manifests, false)
+	index, indexErr := manifest.NewIndex(manifests)
 	if indexErr != nil {
 		return indexErr
 	}
@@ -77,11 +77,8 @@ func defaultFactory(
 	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVDomain), func(m *manifest.Manifest) (interface{}, error) {
 		return websitev1.NewDomain(m)
 	})
-	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVPage), func(m *manifest.Manifest) (interface{}, error) {
-		return websitev1.NewPage(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVTaxonomy), func(m *manifest.Manifest) (interface{}, error) {
-		return websitev1.NewTaxonomy(m)
+	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVContent), func(m *manifest.Manifest) (interface{}, error) {
+		return websitev1.NewContent(m)
 	})
 	factory.Register(fmt.Sprintf("%s/*/*", htmlv1.KGVTemplate), func(m *manifest.Manifest) (interface{}, error) {
 		return htmlv1.NewTemplate(m)

@@ -1,13 +1,13 @@
 kind: website
-group: taxonomy
+group: content
 version: v1
 namespace: era
 name: early-days
 meta:
   include:
-  - resource: website/page/v1/post/*
+  - resource: website/content/v1/post/*
     filter:
-      related: website/taxonomy/v1/era/early-days
+      related: website/content/v1/era/early-days
     baseHref: /era/early-days/
     templates:
     - html/template/v1/post/layout

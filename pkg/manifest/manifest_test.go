@@ -77,3 +77,26 @@ func TestNew(t *testing.T) {
 		})
 	}
 }
+
+func TestNewFromDirectory(t *testing.T) {
+	list, err := manifest.NewFromDirectory("../../example/templates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 8 {
+		t.Fatal("expected 8 items, this test is junk.")
+	}
+}
+
+func TestNewFromReader(t *testing.T) {
+	list, err := manifest.NewFromReader(bytes.NewReader([]byte(`
+      {"kind":"k","group":"g","version":"v","namespace":"ns","name":"first"}
+	  {"kind":"k","group":"g","version":"v","namespace":"ns","name":"second"}
+    `)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatal("expected 2 items, this test is junk")
+	}
+}

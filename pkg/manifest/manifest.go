@@ -3,13 +3,21 @@
 package manifest
 
 import (
+	"bufio"
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"github.com/ghodss/yaml"
 	json "github.com/json-iterator/go"
 	"github.com/tidwall/sjson"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
+	"io"
 	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
 )
 
 // Manifest defines the data that is used to instantiate a resource.
@@ -46,6 +54,15 @@ type Include struct {
 	BaseHref string
 	// A filter to limit the matches on a wildcard selector for resource
 	Filter *Filter
+}
+
+func (i *Include) ID() string {
+	var buffer bytes.Buffer
+	buffer.WriteString(i.As)
+	for _, t := range i.Templates {
+		buffer.WriteString(t.ID())
+	}
+	return buffer.String()
 }
 
 // Filter describes how manifest dependencies can be filtered.
@@ -103,6 +120,88 @@ func NewFromFile(filepath string) (*Manifest, error) {
 		return nil, fmt.Errorf("%s: %w", filepath, newErr)
 	}
 	return manifest, nil
+}
+
+// NewFromReader creates an array of manifests from a provided reader taking the
+// assumption that the reader contains one manifest per line.
+func NewFromReader(input io.Reader) ([]*Manifest, error) {
+	reader := bufio.NewReader(input)
+	queue := make(chan *Manifest)
+	process := errgroup.Group{}
+	for {
+		raw, err := reader.ReadBytes('\n')
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if len(bytes.TrimSpace(raw)) == 0 {
+			continue
+		}
+		process.Go(func() error {
+			manifest, err := New(bytes.TrimRight(raw, "\n"))
+			if err != nil {
+				return fmt.Errorf("%s: %w", raw, err)
+			}
+			queue <- manifest
+			return nil
+		})
+	}
+	collector := errgroup.Group{}
+	var manifests []*Manifest
+	collector.Go(func() error {
+		for manifest := range queue {
+			manifests = append(manifests, manifest)
+		}
+		return nil
+	})
+	if err := process.Wait(); err != nil {
+		return nil, err
+	}
+	close(queue)
+	collector.Wait()
+	return manifests, nil
+}
+
+// NewFromDirectory creates an array of manifests from a provided directory by
+// traversing every file in every directory from a specified parent.
+func NewFromDirectory(dir string) ([]*Manifest, error) {
+	queue := make(chan *Manifest)
+	process, processCtx := errgroup.WithContext(context.Background())
+	sem := semaphore.NewWeighted(10)
+	process.Go(func() error {
+		return filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
+			if f.IsDir() {
+				return nil
+			}
+			if err := sem.Acquire(processCtx, 1); err != nil {
+				return err
+			}
+			process.Go(func() error {
+				defer sem.Release(1)
+				manifest, err := NewFromFile(path)
+				if err != nil {
+					return err
+				}
+				queue <- manifest
+				return nil
+
+			})
+			return nil
+		})
+	})
+	collector := errgroup.Group{}
+	var manifests []*Manifest
+	collector.Go(func() error {
+		for manifest := range queue {
+			manifests = append(manifests, manifest)
+		}
+		return nil
+	})
+	if err := process.Wait(); err != nil {
+		return nil, err
+	}
+	close(queue)
+	collector.Wait()
+	return manifests, nil
 }
 
 // Validate does just what you think it does.
@@ -166,7 +265,7 @@ func (m *Manifest) Required() []*Selector {
 	return selectors
 }
 
-// IterateIncluded calls an iterator function for every valid included resource.
+// EachInclude calls an iterator function for every valid included resource.
 func (m *Manifest) EachInclude(index *Index, fn func(*Include) error) error {
 	if m.Meta.Include == nil {
 		return nil

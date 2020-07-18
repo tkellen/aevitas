@@ -1,5 +1,5 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: post
 name: one
@@ -12,9 +12,10 @@ meta:
     templates: [html/template/v1/core/responsive-image]
     as: piggies
   related:
-  - website/page/v1/post/two
-  - website/taxonomy/v1/tag/worst-moments
-  - website/taxonomy/v1/era/early-days
+  - website/content/v1/post/two
+  - website/content/v1/tag/worst-moments
+  - website/content/v1/era/early-days
+  - website/content/v1/author/tyler
 spec:
   href: /one.html
   title: The First Post Ever

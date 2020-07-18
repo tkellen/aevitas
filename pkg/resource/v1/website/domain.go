@@ -16,7 +16,6 @@ type Domain struct {
 type DomainSpec struct {
 	Title       string
 	Description string
-	Author      string
 	Pages       []string
 	Host        string
 }
@@ -46,9 +45,6 @@ func (d *Domain) Validate() error {
 	}
 	if d.Spec.Description == "" {
 		return fmt.Errorf("description must be defined")
-	}
-	if d.Spec.Author == "" {
-		return fmt.Errorf("author must be defined")
 	}
 	return nil
 }

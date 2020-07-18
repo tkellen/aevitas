@@ -1,16 +1,17 @@
 kind: html
 group: template
 version: v1
-namespace: taxonomy
-name: layout
+namespace: core
+name: related-layout
 meta:
   include:
-  - resource: html/template/v1/taxonomy/entries
+  - resource: html/template/v1/core/related-entries
     as: list
 spec:
   body: |-
     <h1><a href="{{ .Href }}">{{ .Spec.Title }} Entries</a></h1>
-    {{- $related := (.Related "website/page/v1/post/*") -}}
+    <p class="content">{{ yield }}</p>
+    {{- $related := (.Related "website/content/v1/post/*") -}}
     {{ if $related }}
        <ul>{{ template "list" $related }}</ul>
     {{ end }}

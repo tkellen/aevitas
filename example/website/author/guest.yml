@@ -1,0 +1,22 @@
+kind: website
+group: content
+version: v1
+namespace: author
+name: guest
+meta:
+  include:
+  - resource: website/content/v1/post/*
+    filter:
+      related: website/content/v1/author/guest
+    baseHref: /author/guest/
+    templates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/core/layout
+spec:
+  title: Guest
+  titleFragment: Authored by Guest
+  description: Entries authored by a Guest
+  href: /author/guest/index.html
+  extra:
+    email: donotreply@test.com

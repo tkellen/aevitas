@@ -1,5 +1,5 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: post
 name: two
@@ -9,9 +9,11 @@ meta:
     templates: [html/template/v1/core/responsive-image]
     as: nun
   related:
-  - website/taxonomy/v1/tag/worst-moments
-  - website/taxonomy/v1/tag/favorite-days
-  - website/taxonomy/v1/era/early-days
+  - website/content/v1/tag/worst-moments
+  - website/content/v1/tag/favorite-days
+  - website/content/v1/era/early-days
+  - website/content/v1/author/tyler
+  - website/content/v1/author/guest
 spec:
   href: /two.html
   title: The Second Post Ever

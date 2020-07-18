@@ -1,8 +1,8 @@
 kind: html
 group: template
 version: v1
-namespace: post
-name: taxonomy-list
+namespace: core
+name: related-list
 spec:
   body: |-
     {{ range $item := . }}

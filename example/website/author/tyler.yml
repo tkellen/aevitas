@@ -1,0 +1,22 @@
+kind: website
+group: content
+version: v1
+namespace: author
+name: tyler
+meta:
+  include:
+  - resource: website/content/v1/post/*
+    filter:
+      related: website/content/v1/author/tyler
+    baseHref: /author/tyler/
+    templates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/core/layout
+spec:
+  title: Tyler Kellen
+  titleFragment: Authored by Tyler Kellen
+  description: Entries authored by Tyler Kellen
+  href: /author/tyler/index.html
+  extra:
+    email: tyler@goingslowly.com

@@ -5,18 +5,26 @@ namespace: default
 name: example
 meta:
   include:
-  - resource: website/page/v1/post/*
+  - resource: website/content/v1/post/*
     templates:
     - html/template/v1/post/layout
     - html/template/v1/core/layout
-  - resource: website/taxonomy/v1/tag/*
+  - resource: website/content/v1/tag/*
     templates:
-    - html/template/v1/taxonomy/layout
+    - html/template/v1/core/related-layout
     - html/template/v1/core/layout
-  - resource: website/taxonomy/v1/era/*
+  - resource: website/content/v1/era/*
     templates:
-    - html/template/v1/taxonomy/layout
+    - html/template/v1/core/related-layout
     - html/template/v1/core/layout
+  - resource: website/content/v1/author/*
+    templates:
+    - html/template/v1/author/layout
+    - html/template/v1/core/layout
+#  - resource: image/jpeg/v1/asset/*
+#    templates:
+#    - html/template/v1/author/layout
+#    - html/template/v1/core/layout
 spec:
   host: test.com
   title: A Test Website

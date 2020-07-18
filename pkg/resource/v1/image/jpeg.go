@@ -54,6 +54,7 @@ func (img *Jpeg) Render(ctx context.Context, r *resource.Resource) error {
 	return img.Spec.render(ctx, func(width int) error {
 		return img.write(data, scopedDest, width)
 	})
+
 }
 
 func (img *Jpeg) write(src image.Image, fs billy.Filesystem, width int) error {

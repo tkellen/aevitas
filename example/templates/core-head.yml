@@ -7,5 +7,9 @@ spec:
   body: |-
     <head>
       <title>{{ .Title }}</title>
+      {{ $authors := (.Related "website/content/v1/author/*") }}
+      {{ if $authors }}
+        <meta content="{{ range $index, $item := $authors }}{{if $index}} &amp; {{end}}{{ $item.Spec.Title }}{{end}}" name="author" />
+      {{ end }}
       <link rel="canonical" href="{{ .HrefCanonical }}" />
     </head>

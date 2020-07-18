@@ -1,13 +1,13 @@
 kind: website
-group: taxonomy
+group: content
 version: v1
 namespace: tag
 name: favorite-days
 meta:
   include:
-  - resource: website/page/v1/post/*
+  - resource: website/content/v1/post/*
     filter:
-      related: website/taxonomy/v1/tag/favorite-days
+      related: website/content/v1/tag/favorite-days
     baseHref: /tag/favorite-days
     templates:
     - html/template/v1/post/layout
