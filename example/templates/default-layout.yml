@@ -1,0 +1,18 @@
+kind: html
+group: template
+version: v1
+namespace: default
+name: layout
+meta:
+  live: true
+  embed:
+    head: { selector: html/template/v1/default/head }
+spec:
+  body: |-
+    <!DOCTYPE html>
+    <html>
+      {{ template "head" . }}
+      <body>
+      {{ yield }}
+      </body>
+    </html>

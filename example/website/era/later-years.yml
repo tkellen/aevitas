@@ -1,0 +1,24 @@
+kind: website
+group: content
+version: v1
+namespace: era
+name: later-years
+meta:
+  live: true
+  baseHref: /era/later-years
+  renderTemplates:
+  - html/template/v1/related/layout
+  - html/template/v1/default/layout
+  renderAsChild:
+  - selector: website/content/v1/post/*
+    matchIfRelatedTo:
+    - website/content/v1/era/later-years
+    navigationScopedByParent: true
+    renderTemplates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/default/layout
+spec:
+  title: Later Years
+  titleFragment: The Later Years When We Got Old
+  description: Entries filed under the era of "Later Years".

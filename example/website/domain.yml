@@ -4,29 +4,17 @@ version: v1
 namespace: default
 name: example
 meta:
-  include:
-  - resource: website/content/v1/post/*
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/core/layout
-  - resource: website/content/v1/tag/*
-    templates:
-    - html/template/v1/core/related-layout
-    - html/template/v1/core/layout
-  - resource: website/content/v1/era/*
-    templates:
-    - html/template/v1/core/related-layout
-    - html/template/v1/core/layout
-  - resource: website/content/v1/author/*
-    templates:
-    - html/template/v1/author/layout
-    - html/template/v1/core/layout
-#  - resource: image/jpeg/v1/asset/*
-#    templates:
-#    - html/template/v1/author/layout
-#    - html/template/v1/core/layout
+  live: true
+  baseHref: /test.com
+  renderAsChild:
+  - selector: website/content/v1/post/*
+  - selector: website/content/v1/author/*
+  - selector: website/content/v1/era/*
+  - selector: website/content/v1/section/*
+  - selector: website/content/v1/topic/*
+  - selector: website/content/v1/post/*
+  - selector: website/content/v1/collection/*
 spec:
-  host: test.com
   title: A Test Website
   author: Tyler Kellen
   description: A sample website that shows how to use this tool.

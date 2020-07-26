@@ -1,0 +1,26 @@
+kind: website
+group: content
+version: v1
+namespace: topic
+name: odd
+meta:
+  live: true
+  baseHref: /topic/odd
+  relations:
+  - selector: website/content/v1/section/numeric
+  renderTemplates:
+  - html/template/v1/related/layout
+  - html/template/v1/default/layout
+  renderAsChild:
+  - selector: website/content/v1/post/*
+    matchIfRelatedTo:
+    - website/content/v1/topic/odd
+    navigationScopedByParent: true
+    renderTemplates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/default/layout
+spec:
+  title: Odd Numbers
+  titleFragment: Posts Titled With Odd Numbers
+  description: Entries filed under the topic of "Odd Numbers".

@@ -1,0 +1,25 @@
+kind: website
+group: content
+version: v1
+namespace: post
+name: three
+meta:
+  live: true
+  publishAt:
+    year: 2020
+    month: 7
+    day: 3
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/early-days
+  - selector: website/content/v1/topic/odd
+  - selector: website/content/v1/topic/prime
+  renderTemplates:
+  - html/template/v1/post/layout
+  - html/template/v1/default/layout
+spec:
+  href: /2020/07/three.html
+  title: Post Number Three
+  body: |-
+    <p>Post numero tres.</p>
+

@@ -1,0 +1,12 @@
+kind: html
+group: template
+version: v1
+namespace: related
+name: list
+meta:
+  live: true
+spec:
+  body: |-
+    {{ range $resource := . }}
+      <li><a href="{{ $resource.Href }}">{{ $resource.Spec.Title }}</a></li>
+    {{ end }}

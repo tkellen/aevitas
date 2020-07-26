@@ -3,6 +3,8 @@ group: template
 version: v1
 namespace: post
 name: scoped
+meta:
+  live: true
 spec:
   body: |-
     <p>...filed under <a href="{{.Parent.Href}}">{{.Parent.Spec.Title}}</a></p>

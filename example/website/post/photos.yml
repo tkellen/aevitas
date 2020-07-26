@@ -1,0 +1,32 @@
+kind: website
+group: content
+version: v1
+namespace: post
+name: photos
+meta:
+  live: true
+  publishAt:
+    year: 2020
+    month: 1
+    day: 1
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/author/guest
+  - selector: website/content/v1/era/early-days
+  - selector: website/content/v1/topic/photos
+  renderTemplates:
+  - html/template/v1/post/layout
+  - html/template/v1/default/layout
+  embed:
+    piggies:
+      selector: asset/jpeg/v1/image/piggies
+      renderTemplates: [html/template/v1/default/responsive-image]
+    nun:
+      selector: asset/jpeg/v1/image/nun
+      renderTemplates: [html/template/v1/default/responsive-image]
+spec:
+  href: /2020/01/photos.html
+  title: A Post With Photos By Two Authors
+  body: |-
+    {{ template "piggies" }}
+    {{ template "nun" }}

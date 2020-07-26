@@ -29,4 +29,4 @@ func NewTemplate(m *manifest.Manifest) (*Template, error) {
 	return instance, nil
 }
 func (f *Template) Validate() error { return nil }
-func (f *Template) Body() string { return f.Spec.Body }
+func (f *Template) Body() string    { return f.Spec.Body }

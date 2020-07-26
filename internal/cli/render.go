@@ -6,19 +6,19 @@ import (
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"github.com/tkellen/aevitas/pkg/resource"
-	audiov1 "github.com/tkellen/aevitas/pkg/resource/v1/audio"
+	assetv1 "github.com/tkellen/aevitas/pkg/resource/v1/asset"
+	configv1 "github.com/tkellen/aevitas/pkg/resource/v1/config"
 	htmlv1 "github.com/tkellen/aevitas/pkg/resource/v1/html"
-	imagev1 "github.com/tkellen/aevitas/pkg/resource/v1/image"
 	websitev1 "github.com/tkellen/aevitas/pkg/resource/v1/website"
 	"os"
 )
 
 type RenderCmd struct {
 	Load        []string `name:"load" short:"l" type:"existingdir" help:"Directory containing manifests."`
-	Concurrency int      `help:"Control how many parallel renders can be run" default:5`
+	Concurrency int64    `help:"Control how many parallel renders can be run" default:10`
 	AssetRoot   string   `required name:"asset" short:"a" type:"existingdir" help:"Root path to assets." default:"${cwd}"`
 	Output      string   `required name:"output" short:"o" help:"Path for output."`
-	Selector    string   `arg required name:"selector" help:"Manifest to render."`
+	Selector    string   `arg required name:"selector" help:"manifest to render."`
 }
 
 func (r *RenderCmd) Run(ctx *Context) error {
@@ -40,7 +40,7 @@ func (r *RenderCmd) Run(ctx *Context) error {
 		}
 		manifests = append(manifests, list...)
 	}
-	index, indexErr := manifest.NewIndex(manifests)
+	index, indexErr := manifest.NewIndex().Insert(manifests...)
 	if indexErr != nil {
 		return indexErr
 	}
@@ -48,8 +48,8 @@ func (r *RenderCmd) Run(ctx *Context) error {
 	inputRoot := osfs.New(r.AssetRoot)
 	outputRoot := osfs.New(r.Output)
 	factory := defaultFactory(inputRoot, outputRoot)
-	ctx.Logger.Stderr.Printf("%s\n\n...rendering %s with concurrency of %d.\n", index, r.Selector, r.Concurrency)
-	// Get element to render
+	ctx.Logger.Stderr.Printf("...rendering %s with concurrency of %d.\n", r.Selector, r.Concurrency)
+	// findOne element to render
 	root, err := resource.New(r.Selector, index, factory)
 	if err != nil {
 		return err
@@ -62,17 +62,26 @@ func defaultFactory(
 	dest billy.Filesystem,
 ) *resource.Factory {
 	factory := resource.NewFactory(source, dest)
-	factory.Register(fmt.Sprintf("%s/*/*", imagev1.KGVGif), func(m *manifest.Manifest) (interface{}, error) {
-		return imagev1.NewGif(m)
+	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVGif), func(m *manifest.Manifest) (interface{}, error) {
+		return assetv1.NewGif(m)
 	})
-	factory.Register(fmt.Sprintf("%s/*/*", imagev1.KGVJpeg), func(m *manifest.Manifest) (interface{}, error) {
-		return imagev1.NewJpeg(m)
+	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVJpeg), func(m *manifest.Manifest) (interface{}, error) {
+		return assetv1.NewJpeg(m)
 	})
-	factory.Register(fmt.Sprintf("%s/*/*", imagev1.KGVPng), func(m *manifest.Manifest) (interface{}, error) {
-		return imagev1.NewPng(m)
+	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVPng), func(m *manifest.Manifest) (interface{}, error) {
+		return assetv1.NewPng(m)
 	})
-	factory.Register(fmt.Sprintf("%s/*/*", audiov1.KGVMpeg), func(m *manifest.Manifest) (interface{}, error) {
-		return audiov1.NewMpeg(m)
+	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVMpeg), func(m *manifest.Manifest) (interface{}, error) {
+		return assetv1.NewMpeg(m)
+	})
+	factory.Register(fmt.Sprintf("%s/*/*", configv1.KGVData), func(m *manifest.Manifest) (interface{}, error) {
+		return configv1.NewData(m)
+	})
+	factory.Register(fmt.Sprintf("%s/*/*", configv1.KGVTemplate), func(m *manifest.Manifest) (interface{}, error) {
+		return configv1.NewTemplate(m)
+	})
+	factory.Register(fmt.Sprintf("%s/*/*", htmlv1.KGVTemplate), func(m *manifest.Manifest) (interface{}, error) {
+		return htmlv1.NewTemplate(m)
 	})
 	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVDomain), func(m *manifest.Manifest) (interface{}, error) {
 		return websitev1.NewDomain(m)
@@ -80,8 +89,6 @@ func defaultFactory(
 	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVContent), func(m *manifest.Manifest) (interface{}, error) {
 		return websitev1.NewContent(m)
 	})
-	factory.Register(fmt.Sprintf("%s/*/*", htmlv1.KGVTemplate), func(m *manifest.Manifest) (interface{}, error) {
-		return htmlv1.NewTemplate(m)
-	})
+
 	return factory
 }

@@ -154,7 +154,7 @@ func TestSelector_NameIsWildcard(t *testing.T) {
 	for _, test := range table {
 		test := test
 		t.Run(test.selector.String(), func(t *testing.T) {
-			actual := test.selector.NameIsWildcard()
+			actual := test.selector.IsWildcard()
 			if test.expected != actual {
 				t.Fatalf("expected %v, got %v", test.expected, actual)
 			}

@@ -1,9 +1,30 @@
 kind: html
 group: template
 version: v1
-namespace: core
-name: image-layout
+namespace: image
+name: layout
+meta:
+  live: true
+  embed:
+    list: { selector: html/template/v1/related/list }
+    image: { selector: html/template/v1/default/responsive-image }
 spec:
   body: |-
-    <h1>{{ .Title }}</h1>
-    {{yield}}
+    <h1>{{ .Spec.Title }}</h1>
+    {{ template "image" . }}
+    <p>{{ .Spec.Description }}</p>
+    {{- $posts := (.Related "website/content/v1/post/*" .Root) -}}
+    {{ if $posts }}
+      <h2>Featured In</h2>
+      <ul>{{ template "list" $posts }}</ul>
+    {{ end }}
+    {{- $prev := .Prev -}}
+    {{- $next := .Next -}}
+    {{- if (or $next $prev) -}}
+    {{/* not using related-paginate because assets must always use hrefcanonical */}}
+    <h2>Navigate</h2>
+    <ul>
+      {{ if $prev }}<li>Previous: <a href="{{ $prev.HrefCanonical }}">{{ $prev.Spec.Title }}</a></li>{{ end }}
+      {{ if $next }}<li>Next: <a href="{{ $next.HrefCanonical }}">{{ $next.Spec.Title }}</a></li>{{ end }}
+    </ul>
+    {{ end }}

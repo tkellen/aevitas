@@ -1,0 +1,16 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: nun
+meta:
+  live: true
+  publishAt:
+    year: 2020
+    month: 01
+    day: 02
+  baseHref: /image/nun
+  file: nun.jpg
+spec:
+  title: Nun Near Bayon in Angkor Thom
+  widths: [240,420,600,820,1024,1280,1440]

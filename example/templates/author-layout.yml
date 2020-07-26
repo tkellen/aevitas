@@ -4,16 +4,16 @@ version: v1
 namespace: author
 name: layout
 meta:
-  include:
-  - resource: html/template/v1/core/related-entries
-    as: list
+  live: true
+  embed:
+    list: { selector: html/template/v1/related/list }
 spec:
   body: |-
     <h1><a href="{{ .Href }}">{{ .Spec.Title }} Entries</a></h1>
     <p>
     {{ .Spec.Description }}
     </p>
-    {{- $related := (.Related "website/content/v1/post/*") -}}
+    {{- $related := (.Related "website/content/v1/post/*" .) -}}
     {{ if $related }}
        <ul>{{ template "list" $related }}</ul>
     {{ end }}

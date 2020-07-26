@@ -1,0 +1,16 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: piggies
+meta:
+  live: true
+  publishAt:
+    year: 2020
+    month: 01
+    day: 03
+  baseHref: /image/piggies
+  file: piggies.jpg
+spec:
+  title: Vietnamese Pot-bellied Piggies
+  widths: [240,420,600,820,1024,1280,1440]

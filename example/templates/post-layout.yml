@@ -4,26 +4,35 @@ version: v1
 namespace: post
 name: layout
 meta:
-  include:
-  - resource: html/template/v1/core/related-list
-    as: list
+  live: true
+  embed:
+    list: { selector: html/template/v1/related/list }
+    paginate: { selector: html/template/v1/related/paginate }
 spec:
   body: |-
     <h1><a href="{{ .HrefCanonical }}">{{ .Spec.Title }}</a></h1>
-    {{- $authors := (.Related "website/content/v1/author/*") -}}
+    {{- $authors := (.Related "website/content/v1/author/*" .Root) -}}
     {{ if $authors }}
     <ul class="byline">{{ template "list" $authors }}</ul>
     {{ end }}
     <p class="content">
     {{ yield }}
     </p>
-    {{- $related := (.Related "website/content/v1/tag/*") -}}
+    {{- $related := (.Related "website/content/v1/topic/*" .Root) -}}
     {{ if $related }}
-      <h2>Tags</h2>
+      <h2>Topics</h2>
       <ul>{{ template "list" $related }}</ul>
     {{ end }}
-    {{- $eras := (.Related "website/content/v1/era/*") -}}
+    {{- $eras := (.Related "website/content/v1/era/*" .Root) -}}
     {{ if $eras }}
       <h2>Eras</h2>
       <ul>{{ template "list" $eras }}</ul>
     {{ end }}
+    {{/*
+    {{- $sameday := .PublishedSameDayMonth -}}
+    {{ if $sameday }}
+      <h2>In Years Past and Future</h2>
+      <ul>{{ template "list" $sameday }}</ul>
+    {{ end }}
+    */}}
+    {{ template "paginate" . }}

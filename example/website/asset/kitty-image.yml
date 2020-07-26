@@ -1,0 +1,16 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: kitty
+meta:
+  live: true
+  publishAt:
+    year: 2020
+    month: 01
+    day: 01
+  baseHref: /image/kitty
+  file: kitty.jpg
+spec:
+  title: Tyler & Rostov Kremlin Kitty
+  widths: [240,420,600,820,1024,1280,1440]

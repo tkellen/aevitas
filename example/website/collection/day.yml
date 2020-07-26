@@ -1,0 +1,78 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: day
+meta:
+  live: true
+  baseHref: /day
+  renderTemplates:
+  - html/template/v1/day/layout
+  - html/template/v1/default/layout
+  relations:
+  - selector: website/content/v1/day/*
+  renderAsChild:
+  - selector: website/content/v1/day/*
+    # limits rendering day pages to those which actually have posts.
+    matchIfRelatedTo:
+    - website/content/v1/post/*
+    renderTemplates:
+    - html/template/v1/related/layout
+    - html/template/v1/default/layout
+  generateManifests:
+  - name: days
+    rangeOver: [0, 366]
+    context:
+      monthRollover: [31,60,91,121,152,182,213,244,274,305,335,366]
+    template: |-
+      {{- $month := 1 -}}
+      {{- $day := (add count 1) -}}
+      {{- range $idx, $max := .monthRollover -}}
+        {{- if ge count ($max | int) -}}
+          {{- $month = (add $idx 2) -}}
+          {{- $day = (add (sub count $max) 1) -}}
+        {{- end -}}
+      {{- end -}}
+      {
+        "kind": "website",
+        "group": "content",
+        "version": "v1",
+        "namespace": "day",
+        "name": "{{ $month }}-{{ $day }}",
+        "meta": {
+          "live": true,
+          "baseHref": "/{{ printf "%02d" $month }}/{{ printf "%02d" $day }}",
+          "renderTemplates": [
+            "html/template/v1/related/layout",
+            "html/template/v1/default/layout"
+          ],
+          "relations": [{
+            "selector": "website/content/v1/post/*",
+            "navigationScopedByParent": true,
+            "matchExpression": [
+              { "key": "meta.publishAt.month", "operator": "In", "values": [{{ $month }}] },
+              { "key": "meta.publishAt.day", "operator": "In", "values": [{{ $day }}] }
+            ]
+          }],
+          "renderAsChild": [{
+            "selector": "website/content/v1/post/*",
+            "matchIfRelatedTo": [
+              "website/content/v1/day/{{ $month }}-{{ $day }}"
+            ],
+            "navigationScopedByParent": true,
+            "renderTemplates": [
+              "html/template/v1/post/layout",
+              "html/template/v1/post/scoped",
+              "html/template/v1/default/layout"
+            ]
+          }]
+        },
+        "spec": {
+          "title": "{{ $month }}-{{ $day }}",
+          "titleFragment": "Posts made on {{ $month }} / {{ $day }}",
+          "body": "The {{ $day }} day of the {{ $month }} month."
+        }
+      }
+spec:
+  title: Posts by Day
+  description: A listing of all posts by day.

@@ -4,17 +4,21 @@ version: v1
 namespace: era
 name: early-days
 meta:
-  include:
-  - resource: website/content/v1/post/*
-    filter:
-      related: website/content/v1/era/early-days
-    baseHref: /era/early-days/
-    templates:
+  live: true
+  baseHref: /era/early-days
+  renderTemplates:
+  - html/template/v1/related/layout
+  - html/template/v1/default/layout
+  renderAsChild:
+  - selector: website/content/v1/post/*
+    matchIfRelatedTo:
+    - website/content/v1/era/early-days
+    navigationScopedByParent: true
+    renderTemplates:
     - html/template/v1/post/layout
     - html/template/v1/post/scoped
-    - html/template/v1/core/layout
+    - html/template/v1/default/layout
 spec:
   title: Early Days
   titleFragment: Early Days Of Our Lives
   description: Entries filed under the era of "Early Days".
-  href: /era/early-days/index.html

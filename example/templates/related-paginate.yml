@@ -1,0 +1,18 @@
+kind: html
+group: template
+version: v1
+namespace: related
+name: paginate
+meta:
+  live: true
+spec:
+  body: |-
+    {{- $prev := .Prev -}}
+    {{- $next := .Next -}}
+    {{- if (or $next $prev) -}}
+    <h2>Navigate</h2>
+    <ul>
+      {{ if $prev }}<li>Previous{{ if .NavigationScopedByParent }} in {{ .Parent.Spec.Title }}{{ end }}: <a href="{{ $prev.Href }}">{{ $prev.Spec.Title }}</a></li>{{ end }}
+      {{ if $next }}<li>Next{{ if .NavigationScopedByParent }} in {{ .Parent.Spec.Title }}{{ end }}: <a href="{{ $next.Href }}">{{ $next.Spec.Title }}</a></li>{{ end }}
+    </ul>
+    {{ end }}

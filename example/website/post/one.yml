@@ -4,23 +4,22 @@ version: v1
 namespace: post
 name: one
 meta:
-  include:
-  - resource: image/jpeg/v1/asset/nun
-    templates: [html/template/v1/core/responsive-image]
-    as: nun
-  - resource: image/jpeg/v1/asset/piggies
-    templates: [html/template/v1/core/responsive-image]
-    as: piggies
-  related:
-  - website/content/v1/post/two
-  - website/content/v1/tag/worst-moments
-  - website/content/v1/era/early-days
-  - website/content/v1/author/tyler
+  live: true
+  publishAt:
+    year: 2020
+    month: 7
+    day: 1
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/early-days
+  - selector: website/content/v1/topic/odd
+  - selector: website/content/v1/topic/prime
+  renderTemplates:
+  - html/template/v1/post/layout
+  - html/template/v1/default/layout
 spec:
-  href: /one.html
-  title: The First Post Ever
+  href: /2020/07/one.html
+  title: Post Number One
   body: |-
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam in elementum dolor. Suspendisse semper, eros eget ultrices suscipit, sapien diam scelerisque ligula, et sollicitudin dolor nulla in sem. Etiam tellus sapien, sagittis eu justo vel, tincidunt laoreet mauris. Praesent in scelerisque ante. Fusce ac felis eget eros mattis vehicula. Praesent mattis ligula vitae urna dictum tincidunt. Nullam pellentesque nulla et lorem vulputate finibus. Aliquam interdum massa non sollicitudin congue. Curabitur lobortis dui eu faucibus semper. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Mauris porta elit a tortor fringilla tincidunt.</p>
-    {{ template "piggies" }}
-    <p>Morbi finibus elit quis tellus rhoncus porttitor. Nunc porta ante odio, quis consequat erat venenatis luctus. Mauris pretium auctor nisi, vitae tincidunt libero euismod ut. Aliquam sit amet fermentum lacus. Praesent tortor nulla, volutpat a vestibulum sit amet, facilisis quis enim. Ut condimentum semper risus, in rhoncus dolor interdum ut. Nunc in feugiat ligula. Maecenas lectus arcu, gravida vel lacinia eget, porttitor in nisi. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In fermentum libero at nisi porta iaculis. Sed iaculis enim at nulla molestie, ac tincidunt turpis volutpat. Quisque id lorem eros.</p>
-    {{ template "nun" }}
+    <p>Post numero uno.</p>
+

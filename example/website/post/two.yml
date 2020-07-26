@@ -4,19 +4,21 @@ version: v1
 namespace: post
 name: two
 meta:
-  include:
-  - resource: image/jpeg/v1/asset/nun
-    templates: [html/template/v1/core/responsive-image]
-    as: nun
-  related:
-  - website/content/v1/tag/worst-moments
-  - website/content/v1/tag/favorite-days
-  - website/content/v1/era/early-days
-  - website/content/v1/author/tyler
-  - website/content/v1/author/guest
+  live: true
+  publishAt:
+    year: 2020
+    month: 7
+    day: 2
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/early-days
+  - selector: website/content/v1/topic/even
+  renderTemplates:
+  - html/template/v1/post/layout
+  - html/template/v1/default/layout
 spec:
-  href: /two.html
-  title: The Second Post Ever
+  href: /2020/07/two.html
+  title: Post Number Two
   body: |-
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Etiam in elementum dolor. Suspendisse semper, eros eget ultrices suscipit, sapien diam scelerisque ligula, et sollicitudin dolor nulla in sem. Etiam tellus sapien, sagittis eu justo vel, tincidunt laoreet mauris. Praesent in scelerisque ante. Fusce ac felis eget eros mattis vehicula. Praesent mattis ligula vitae urna dictum tincidunt. Nullam pellentesque nulla et lorem vulputate finibus. Aliquam interdum massa non sollicitudin congue. Curabitur lobortis dui eu faucibus semper. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Mauris porta elit a tortor fringilla tincidunt.</p>
-    {{ template "nun" }}
+    <p>Post numero dos.</p>
+

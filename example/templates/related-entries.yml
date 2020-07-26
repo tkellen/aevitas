@@ -1,0 +1,15 @@
+kind: html
+group: template
+version: v1
+namespace: related
+name: entries
+meta:
+  live: true
+spec:
+  body: |-
+    {{ range }}
+      <li>
+        <h3><a href="{{ .Href }}">{{ .Spec.Title }}</a></h3>
+        <p class="content">{{ .Spec.Description }}</p>
+      </li>
+    {{ end }}

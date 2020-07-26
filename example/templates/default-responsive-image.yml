@@ -1,0 +1,15 @@
+kind: html
+group: template
+version: v1
+namespace: default
+name: responsive-image
+meta:
+  live: true
+spec:
+  body: |-
+    <a href="{{.HrefCanonical}}">
+      <img src="{{.BaseHref}}/{{index .Spec.Widths 0}}"
+        srcset="{{range $index, $width := .Spec.Widths}}{{if $index}} , {{end}}{{$.BaseHref}}/{{$width}} {{$width}}w{{end}}"
+        alt="{{.Spec.Title}}"
+        title="{{.Spec.Title}}" />
+    </a>

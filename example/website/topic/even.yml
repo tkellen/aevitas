@@ -1,0 +1,26 @@
+kind: website
+group: content
+version: v1
+namespace: topic
+name: even
+meta:
+  live: true
+  baseHref: /topic/even
+  relations:
+  - selector: website/content/v1/section/numeric
+  renderTemplates:
+  - html/template/v1/related/layout
+  - html/template/v1/default/layout
+  renderAsChild:
+  - selector: website/content/v1/post/*
+    matchIfRelatedTo:
+    - website/content/v1/topic/even
+    navigationScopedByParent: true
+    renderTemplates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/default/layout
+spec:
+  title: Even Numbers
+  titleFragment: Posts Titled With Even Numbers
+  description: Entries filed under the topic of "Even Numbers".

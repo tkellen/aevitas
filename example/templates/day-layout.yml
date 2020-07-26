@@ -1,0 +1,20 @@
+kind: html
+group: template
+version: v1
+namespace: day
+name: layout
+meta:
+  live: true
+  embed:
+    paginate: { selector: html/template/v1/related/paginate }
+    list: { selector: html/template/v1/related/list }
+spec:
+  body: |-
+    <h1>{{ .Spec.Title }}</h1>
+    {{ yield }}
+    {{- $posts := (.Related "website/content/v1/post/*" .) -}}
+    {{ if $posts }}
+      <h2>On This Day</h2>
+      <ul>{{ template "list" $posts }}</ul>
+    {{ end }}
+    {{ template "paginate" . }}

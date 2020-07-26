@@ -1,0 +1,24 @@
+kind: website
+group: content
+version: v1
+namespace: topic
+name: photos
+meta:
+  live: true
+  baseHref: /topic/photos
+  renderTemplates:
+  - html/template/v1/related/layout
+  - html/template/v1/default/layout
+  renderAsChild:
+  - selector: website/content/v1/post/*
+    matchIfRelatedTo:
+    - website/content/v1/topic/photos
+    navigationScopedByParent: true
+    renderTemplates:
+    - html/template/v1/post/layout
+    - html/template/v1/post/scoped
+    - html/template/v1/default/layout
+spec:
+  title: Photo Posts
+  titleFragment: Posts With Photos
+  description: Entries filed under the topic of "Photo Posts".

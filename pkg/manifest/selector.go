@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Selector uniquely identifies a resource.
+// selector uniquely identifies a resource.
 type Selector struct {
 	// Kind describes at the highest level what a resource contains.
 	Kind string
@@ -17,19 +17,19 @@ type Selector struct {
 	Version string
 	// Namespace allows grouping of KGVs
 	Namespace string
-	// Name provides a human-friendly identifier for the resource.
+	// id provides a human-friendly identifier for the resource.
 	Name string
 }
 
 // NewSelector produces a selector from a string. The expected form is:
 // "namespace/kind/group/version/name". A wildcard selector is allowed in this
 // form: "namespace/kind/group/version/*".
-func NewSelector(selector string) (Selector, error) {
+func NewSelector(selector string) (*Selector, error) {
 	parts := strings.Split(selector, "/")
 	if len(parts) != 5 {
-		return Selector{}, fmt.Errorf("unsupported selector: %s", selector)
+		return nil, fmt.Errorf("unsupported selector: %s", selector)
 	}
-	instance := Selector{
+	instance := &Selector{
 		Kind:      parts[0],
 		Group:     parts[1],
 		Version:   parts[2],
@@ -37,9 +37,17 @@ func NewSelector(selector string) (Selector, error) {
 		Name:      parts[4],
 	}
 	if err := instance.Validate(); err != nil {
-		return Selector{}, err
+		return nil, err
 	}
 	return instance, nil
+}
+
+func NewSelectorMust(selector string) *Selector {
+	instance, err := NewSelector(selector)
+	if err != nil {
+		panic(err)
+	}
+	return instance
 }
 
 func (s Selector) Validate() error {
@@ -58,9 +66,9 @@ func (s Selector) KGVN() string { return fmt.Sprintf("%s/%s", s.KGV(), s.Namespa
 // ID returns a full string representation of the selector.
 func (s Selector) ID() string { return fmt.Sprintf("%s/%s", s.KGVN(), s.Name) }
 
-// NameIsWildcard indicates if a selector is meant to reference all manifests of
+// IsWildcard indicates if a selector is meant to reference all manifests of
 // a namespace/kind/group/version.
-func (s Selector) NameIsWildcard() bool { return s.Name == "*" }
+func (s Selector) IsWildcard() bool { return s.Name == "*" }
 
 // String returns a full string representation of the selector.
 func (s Selector) String() string { return s.ID() }
@@ -71,7 +79,7 @@ func (s Selector) Matches(check Selector) bool {
 		check.Group == s.Group &&
 		check.Version == s.Version &&
 		check.Namespace == s.Namespace &&
-		(check.Name == s.Name || check.NameIsWildcard() || s.NameIsWildcard())
+		(check.Name == s.Name || check.IsWildcard() || s.IsWildcard())
 }
 
 // UnmarshalJSON instantiates a selector from a string.
@@ -84,6 +92,6 @@ func (s *Selector) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	*s = result
+	*s = *result
 	return nil
 }

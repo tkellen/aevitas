@@ -35,7 +35,10 @@ func NewContent(m *manifest.Manifest) (*Content, error) {
 		}
 	}
 	if instance.Spec.Description != "" && instance.Spec.Body == "" {
-		instance.Spec.Body =instance.Spec.Description
+		instance.Spec.Body = instance.Spec.Description
+	}
+	if instance.Spec.Href == "" {
+		instance.Spec.Href = "index.html"
 	}
 	if err := instance.Validate(); err != nil {
 		return nil, err
@@ -44,9 +47,6 @@ func NewContent(m *manifest.Manifest) (*Content, error) {
 }
 
 func (c *Content) Validate() error {
-	if c.Spec.Href == "" {
-		return fmt.Errorf("href must be defined")
-	}
 	if c.Spec.Title == "" {
 		return fmt.Errorf("title must be defined")
 	}
@@ -58,6 +58,6 @@ func (c *Content) Validate() error {
 	}
 	return nil
 }
-func (c *Content) Body() string { return c.Spec.Body }
-func (c *Content) Href() string    { return c.Spec.Href }
-func (c *Content) Title() string   { return c.Spec.Title }
+func (c *Content) Body() string  { return c.Spec.Body }
+func (c *Content) Href() string  { return c.Spec.Href }
+func (c *Content) Title() string { return c.Spec.Title }

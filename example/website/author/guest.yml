@@ -4,19 +4,23 @@ version: v1
 namespace: author
 name: guest
 meta:
-  include:
-  - resource: website/content/v1/post/*
-    filter:
-      related: website/content/v1/author/guest
-    baseHref: /author/guest/
-    templates:
+  live: true
+  baseHref: /author/guest
+  renderTemplates:
+  - html/template/v1/author/layout
+  - html/template/v1/default/layout
+  renderAsChild:
+  - selector: website/content/v1/post/*
+    matchIfRelatedTo:
+    - website/content/v1/author/guest
+    navigationScopedByParent: true
+    renderTemplates:
     - html/template/v1/post/layout
     - html/template/v1/post/scoped
-    - html/template/v1/core/layout
+    - html/template/v1/default/layout
 spec:
   title: Guest
   titleFragment: Authored by Guest
-  description: Entries authored by a Guest
-  href: /author/guest/index.html
+  description: A person.
   extra:
     email: donotreply@test.com

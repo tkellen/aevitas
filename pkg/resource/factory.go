@@ -10,31 +10,35 @@ import (
 // Handler provides support for instantiating resources of any type. When golang
 // supports generics this will likely go away.
 type Factory struct {
-	Handlers      []*Handler
-	DefaultSource billy.Filesystem
-	DefaultDest   billy.Filesystem
+	handlers      []*Handler
+	defaultSource billy.Filesystem
+	defaultDest   billy.Filesystem
 }
 
 // Handler represents a method of instantiating a specific resource type.
 type Handler struct {
-	Selector manifest.Selector
-	New      func(m *manifest.Manifest) (interface{}, error)
-	Source   billy.Filesystem
-	Dest     billy.Filesystem
+	selector *manifest.Selector
+	new      func(m *manifest.Manifest) (interface{}, error)
+	source   billy.Filesystem
+	dest     billy.Filesystem
+}
+
+func (h *Handler) New(m *manifest.Manifest) (interface{}, error) {
+	return h.new(m)
 }
 
 // NewFactory creates a registry
 func NewFactory(defaultSource billy.Filesystem, defaultDest billy.Filesystem) *Factory {
 	return &Factory{
-		DefaultSource: defaultSource,
-		DefaultDest:   defaultDest,
+		defaultSource: defaultSource,
+		defaultDest:   defaultDest,
 	}
 }
 
 func (r *Factory) String() string {
 	var details []string
-	for _, h := range r.Handlers {
-		details = append(details, fmt.Sprintf("%s", h.Selector))
+	for _, h := range r.handlers {
+		details = append(details, fmt.Sprintf("%s", h.selector))
 	}
 	return strings.Join(details, "\n")
 }
@@ -44,20 +48,20 @@ func (r *Factory) Register(target string, fn func(m *manifest.Manifest) (interfa
 	if err != nil {
 		return err
 	}
-	r.Handlers = append(r.Handlers, &Handler{
-		Selector: s,
+	r.handlers = append(r.handlers, &Handler{
+		selector: s,
 		// expose per-selector source customization?
-		Source: r.DefaultSource,
-		Dest:   r.DefaultDest,
-		New:    fn,
+		source: r.defaultSource,
+		dest:   r.defaultDest,
+		new:    fn,
 	})
 	return nil
 }
 
 func (r *Factory) Handler(target *manifest.Manifest) (*Handler, error) {
 	var factory *Handler
-	for _, h := range r.Handlers {
-		if h.Selector.KGV() == target.Selector.KGV() {
+	for _, h := range r.handlers {
+		if h.selector.KGV() == target.Selector.KGV() {
 			factory = h
 		}
 	}
