@@ -1,26 +1,22 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: author
 name: guest
 meta:
   live: true
-  baseHref: /author/guest
-  renderTemplates:
-  - html/template/v1/author/layout
-  - html/template/v1/default/layout
-  renderAsChild:
-  - selector: website/content/v1/post/*
+  titleBase: Guest
+  description: Entries authored by Guest.
+  hrefBase: /author/guest
+render:
+  children:
+  - selector: website/page/v1/post/*
     matchIfRelatedTo:
-    - website/content/v1/author/guest
-    navigationScopedByParent: true
-    renderTemplates:
+    - website/page/v1/author/guest
+    templates:
     - html/template/v1/post/layout
-    - html/template/v1/post/scoped
+    - html/template/v1/default/content
+    - html/template/v1/nav/scoped
     - html/template/v1/default/layout
-spec:
-  title: Guest
-  titleFragment: Authored by Guest
-  description: A person.
-  extra:
-    email: donotreply@test.com
+body: |-
+  {{ .Meta.Description }}

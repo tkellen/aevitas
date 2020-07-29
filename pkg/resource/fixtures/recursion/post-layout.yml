@@ -1,0 +1,14 @@
+kind: html
+group: template
+version: v1
+namespace: post
+name: layout
+meta:
+  live: true
+render:
+  imports:
+  - name: authorsCollection
+    selector: website/page/v1/collection/authors
+body: |-
+  {{ authorsCollection.Href }}
+  {{ yield }}

@@ -1,0 +1,72 @@
+kind: website
+group: page
+version: v1
+namespace: collection
+name: date
+meta:
+  live: true
+render:
+  children:
+  - selector: website/page/v1/date/*
+    matchIfRelatedTo:
+    - website/page/v1/post/*
+    templates:
+    - html/template/v1/collection/posts
+    - html/template/v1/default/content
+    - html/template/v1/default/layout
+generateManifests:
+- loops:
+  - name: year
+    range: [2008, 2020]
+  template: |-
+    {
+      "kind": "website",
+      "group": "page",
+      "version": "v1",
+      "namespace": "date",
+      "name": "year-{{ year }}",
+      "meta": {
+        "live": true,
+        "titleBase": "by year",
+        "title": "{{ year }}",
+        "href": "/{{ year }}/index.html"
+      },
+      "relations": [{
+        "selector": "website/page/v1/post/*",
+        "matchExpression": [
+          { "operator": "InYear", "values": [{{ year }}] }
+        ]
+      }],
+      "spec": {
+        "body": "year {{ year }}"
+      }
+    }
+- loops:
+  - name: year
+    range: [2008, 2020]
+  - name: month
+    range: [1, 12]
+  template: |-
+    {
+      "kind": "website",
+      "group": "page",
+      "version": "v1",
+      "namespace": "date",
+      "name": "month-{{ year }}-{{ printf "%02d" month }}",
+      "meta": {
+        "live": true,
+        "titleBase": "by month",
+        "title": "{{ year }}-{{ printf "%02d" month }}",
+        "href": "/{{ year }}/{{ printf "%02d" month }}/index.html"
+      },
+      "relations": [{
+        "selector": "website/page/v1/post/*",
+        "matchExpression": [
+          { "operator": "InYear", "values": [{{ year }}] },
+          { "operator": "InMonth", "values": [{{ month }}] }
+        ]
+      }],
+      "spec": {
+        "body": "month {{ year }}-{{ printf "%02d" month }}"
+      }
+    }

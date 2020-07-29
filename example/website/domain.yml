@@ -1,20 +1,24 @@
 kind: website
-group: domain
+group: page
 version: v1
-namespace: default
-name: example
+namespace: domain
+name: blog
 meta:
   live: true
-  baseHref: /test.com
-  renderAsChild:
-  - selector: website/content/v1/post/*
-  - selector: website/content/v1/author/*
-  - selector: website/content/v1/era/*
-  - selector: website/content/v1/section/*
-  - selector: website/content/v1/topic/*
-  - selector: website/content/v1/post/*
-  - selector: website/content/v1/collection/*
-spec:
-  title: A Test Website
-  author: Tyler Kellen
-  description: A sample website that shows how to use this tool.
+  titleBase: Test Blog
+  title: Home
+  description: A sample blog that shows how to use this tool.
+  hrefBase: /
+render:
+  children:
+  - selector: website/page/v1/collection/*
+    templates:
+    - html/template/v1/collection/layout
+    - html/template/v1/default/content
+    - html/template/v1/default/layout
+  - selector: website/page/v1/post/*
+    templates:
+    - html/template/v1/post/layout
+    - html/template/v1/default/content
+    - html/template/v1/nav/unscoped
+    - html/template/v1/default/layout

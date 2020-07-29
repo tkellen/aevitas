@@ -1,12 +1,12 @@
-SHELL=/bin/bash
-.PHONY: example site clean serve
-example: clean
-	go run . render -a example/asset -l example/website -l example/templates -o build website/domain/v1/default/example
+OUTPUT_BASE="build"
 
-site: clean
-	memorybox index | go run . render -a ~/memorybox -l example/templates -l resources -o build website/domain/v1/goingslowly/journal
+.PHONY: example clean serve
+example: clean
+	go run . render -a example/asset -l example/website -l example/templates -o build website/page/v1/domain/blog
+	cp -R example/public/* $(OUTPUT_BASE)
 
 clean:
+	mkdir -p build
 	find build -type f -name "*.html" -exec rm {} +
 
 serve:

@@ -4,148 +4,138 @@ package manifest
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"github.com/ghodss/yaml"
 	json "github.com/json-iterator/go"
+	"github.com/lestrrat-go/strftime"
 	"github.com/tidwall/sjson"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
+	"github.com/tkellen/aevitas/internal/selector"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
-// manifest represents data that is used to instantiate a resource.
+// Manifest represents data that is used to instantiate a resource.
 type Manifest struct {
-	Selector *Selector
+	Selector *selector.Selector
 	// Meta provides optional additional information about the resource.
 	Meta *Meta
-	// Spec contains a json-encoded byte array holding details specific to the
-	// KGN (Kind Group Version) of the manifest.
+	// Relations allows expressing relationships with other manifests.
+	Relations []*Relation
+	// Meta provides details about how to render the resource.
+	Render *Render
+	// GenerateManifests describes how one manifest can generate others.
+	GenerateManifests []*Generator
+	// Body contains the textual content of a manifest.
+	Body string
+	// Spec contains details specific to the kind/group/version of the manifest.
 	Spec json.RawMessage
-	// Raw holds a copy of the raw data provided when instantiating a manifest.
-	Raw []byte
-	// Json holds a copy of the entire manifest as a json object regardless of
-	// the format of the source.
-	Json json.RawMessage
 	// source indicates where the manifest originated.
-	source string
+	Source string
+	// raw is the raw data that produced the manifest
+	Raw []byte
 }
 
-// UnmarshalJSON does just what you think it does.
-func (m *Manifest) UnmarshalJSON(data []byte) error {
-	var temp struct {
-		Kind      string
-		Group     string
-		Version   string
-		Name      string
-		Namespace string
-		Live      bool
-		PublishAt time.Time
-		BaseHref  string
-		Meta      *Meta
-		Spec      json.RawMessage
-	}
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return fmt.Errorf("json unmarshal: %w", err)
-	}
-	s, err := NewSelector(fmt.Sprintf("%s/%s/%s/%s/%s", temp.Kind, temp.Group, temp.Version, temp.Namespace, temp.Name))
-	if err != nil {
-		return err
-	}
-	*m = Manifest{
-		Selector: s,
-		Meta:     temp.Meta,
-		Spec:     temp.Spec,
-		Raw:      data,
-	}
-	return nil
+// RenderManifest represents a manifest and those manifests which have been
+// chosen to render it. This allows the same manifest to be consumed in many
+// different configurations.
+type RenderManifest struct {
+	Manifest         *Manifest
+	TemplateOverride Templates
 }
 
 // Validate does just what you think it does.
 func (m *Manifest) Validate() error {
-	if m.Meta != nil {
-		return m.Meta.Validate()
+	for _, generator := range m.GenerateManifests {
+		if err := generator.Validate(); err != nil {
+			return fmt.Errorf("%s: %w", generator.Name, err)
+		}
+	}
+	for _, related := range m.Relations {
+		if err := related.validate(); err != nil {
+			return err
+		}
+	}
+	if err := m.Render.validate(); err != nil {
+		return err
 	}
 	return nil
 }
 
 // String returns an identifier referencing where the manifest originated.
 func (m *Manifest) String() string {
-	return fmt.Sprintf("%s (%s)", m.Selector, m.source)
+	return fmt.Sprintf("%s (%s)", m.Selector, m.Source)
 }
 
-// BaseHref returns the underlying base href.
-func (m *Manifest) BaseHref() string {
-	if m.Meta == nil {
-		return ""
+// UnmarshalJSON does just what you think it does.
+func (m *Manifest) UnmarshalJSON(data []byte) error {
+	var temp struct {
+		Kind              string
+		Group             string
+		Version           string
+		Name              string
+		Namespace         string
+		Meta              *Meta
+		Relations         []*Relation
+		GenerateManifests []*Generator
+		Render            *Render
+		Body              string
+		Spec              json.RawMessage
 	}
-	return m.Meta.BaseHref
-}
-
-// EachEmbed executes a supplied function once for every embed of this manifest.
-// TODO: DRY with EachChild
-func (m *Manifest) EachEmbed(index *Index, fn func(*RenderTarget) error) error {
-	for name, child := range m.Meta.Embed {
-		expanded, err := child.Expand(index, name)
-		if err != nil {
-			return err
-		}
-		for _, item := range expanded {
-			if err := fn(item); err != nil {
-				return err
-			}
-		}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return fmt.Errorf("json unmarshal: %w", err)
+	}
+	s, err := selector.New(fmt.Sprintf("%s/%s/%s/%s/%s", temp.Kind, temp.Group, temp.Version, temp.Namespace, temp.Name))
+	if err != nil {
+		return err
+	}
+	*m = Manifest{
+		Selector:          s,
+		Meta:              temp.Meta,
+		Render:            temp.Render,
+		Relations:         temp.Relations,
+		GenerateManifests: temp.GenerateManifests,
+		Spec:              temp.Spec,
+		Body:              temp.Body,
 	}
 	return nil
 }
 
-// EachChild executes a supplied function once for every child of this manifest.
-// TODO: DRY with EachEmbed
-func (m *Manifest) EachChild(index *Index, fn func(*RenderTarget) error) error {
-	for _, child := range m.Meta.RenderAsChild {
-		expanded, err := child.Expand(index, child.Selector.ID())
-		if err != nil {
-			return err
-		}
-		for _, item := range expanded {
-			if err := fn(item); err != nil {
-				return err
-			}
-		}
+// Date returns a native time object from the deconstructed form.
+func (m *Manifest) PublishAt() time.Time {
+	if m.Meta.PublishAt == nil {
+		return time.Time{}
 	}
-	return nil
+	pa := m.Meta.PublishAt
+	return time.Date(pa.Year, time.Month(pa.Month), pa.Day, pa.Hours, pa.Minutes, pa.Seconds, 0, time.UTC)
 }
 
-// relations resolves an array of selectors for all related and embedded
-// manifests.
-func (m *Manifest) relations(index *Index) ([]*Selector, error) {
-	if m.Meta == nil {
-		return nil, nil
+func (m *Manifest) Title() string {
+	if m.Meta.Title == m.Meta.TitleBase {
+		return m.Meta.Title
 	}
-	var selectors []*Selector
-	// Collect selectors inside embeds.
-	for _, child := range m.Meta.Embed {
-		relatedSelectors, err := child.Resolve(index)
-		if err != nil {
-			return nil, err
-		}
-		selectors = append(selectors, relatedSelectors...)
+	if m.Meta.TitleBase == "" {
+		return m.Meta.Title
 	}
-	// Collect selectors inside relations.
-	for _, related := range m.Meta.Relations {
-		relatedSelectors, err := related.Resolve(index)
-		if err != nil {
-			return nil, err
-		}
-		selectors = append(selectors, relatedSelectors...)
+	if m.Meta.Title == "" {
+		return m.Meta.TitleBase
 	}
-	return selectors, nil
+	return m.Meta.Title + " " +m.Meta.TitleBase
+}
+
+func (m *Manifest) Href() string {
+	if m.Meta.HrefBase == "" {
+		return m.Meta.Href
+	}
+	if m.Meta.Href == "" {
+		return m.Meta.HrefBase
+	}
+	return path.Join(m.Meta.HrefBase, m.Meta.Href)
 }
 
 // IsLive determines if the manifest is considered published.
@@ -156,8 +146,8 @@ func (m *Manifest) IsLive() bool {
 	if !m.Meta.Live {
 		return false
 	}
-	if !m.Meta.PublishAt.Date().IsZero() {
-		return time.Now().After(m.Meta.PublishAt.Date())
+	if !m.PublishAt().IsZero() {
+		return time.Now().After(m.PublishAt())
 	}
 	return true
 }
@@ -168,10 +158,10 @@ func (m *Manifest) Greater(compare *Manifest) bool {
 	if compare == nil || compare.Meta == nil {
 		return false
 	}
-	if m.Meta.PublishAt.Date().IsZero() || compare.Meta.PublishAt.Date().IsZero() {
+	if m.PublishAt().IsZero() || compare.PublishAt().IsZero() {
 		return m.Selector.ID() > compare.Selector.ID()
 	}
-	return m.Meta.PublishAt.Date().Before(compare.Meta.PublishAt.Date())
+	return m.PublishAt().After(compare.PublishAt())
 }
 
 // Less determines if the receiver manifest was published before the compared.
@@ -180,10 +170,10 @@ func (m *Manifest) Less(compare *Manifest) bool {
 	if compare == nil || compare.Meta == nil {
 		return false
 	}
-	if m.Meta.PublishAt.Date().IsZero() || compare.Meta.PublishAt.Date().IsZero() {
+	if m.PublishAt().IsZero() || compare.PublishAt().IsZero() {
 		return m.Selector.ID() < compare.Selector.ID()
 	}
-	return m.Meta.PublishAt.Date().After(compare.Meta.PublishAt.Date())
+	return m.PublishAt().Before(compare.PublishAt())
 }
 
 // Equal determines if the receiver manifest was published at the same time as
@@ -193,39 +183,118 @@ func (m *Manifest) Equal(compare *Manifest) bool {
 	if compare == nil || compare.Meta == nil {
 		return false
 	}
-	if m.Meta.PublishAt.Date().IsZero() || compare.Meta.PublishAt.Date().IsZero() {
+	if m.PublishAt().IsZero() || compare.PublishAt().IsZero() {
 		return true
 	}
-	return m.Meta.PublishAt.Date().Equal(compare.Meta.PublishAt.Date())
+	return m.PublishAt().Equal(compare.PublishAt())
 }
 
-// Generate produces an array of manifests for all manifests that may be
-// configured to be generated from within the receiver manifest.
-func (m *Manifest) Generate() ([]*Manifest, error) {
-	var manifests []*Manifest
-	if m.Meta == nil || m.Meta.GenerateManifests == nil {
-		return manifests, nil
-	}
-	for _, generator := range m.Meta.GenerateManifests {
-		created, err := NewFromGenerator(generator, m)
-		if err != nil {
-			return nil, fmt.Errorf("%s: generateManifests: %s: %w", m, generator.Name, err)
+// ResolveChildren converts all children selectors into manifests using the
+// supplied index.
+func (m *Manifest) ResolveChildren(index *Index) ([]*RenderManifest, error) {
+	var children []*RenderManifest
+	for _, child := range m.Render.Children {
+		resolvedChildren, relationErr := child.Relation.Resolve(index)
+		if relationErr != nil {
+			return nil, relationErr
 		}
-		manifests = append(manifests, created...)
+		for _, match := range resolvedChildren {
+			children = append(children, &RenderManifest{
+				Manifest:         match,
+				TemplateOverride: child.Templates,
+			})
+		}
 	}
-	return manifests, nil
+	return children, nil
 }
+
+// AsImported describes a manifest as imported by name. It also allows consumers
+// to know if the import was intended to produce multiple results or one.
+type AsImported struct {
+	Name       string
+	Single     bool
+	IsTemplate bool
+	Manifests  []*Manifest
+}
+
+// ResolveStaticImports converts all imports selectors into manifests using the
+// supplied index.
+func (m *Manifest) ResolveStaticImports(index *Index) ([]*AsImported, error) {
+	var imports []*AsImported
+	for _, toImport := range m.Render.Imports {
+		expanded, err := toImport.Resolve(index)
+		if err != nil {
+			return nil, err
+		}
+		imports = append(imports, &AsImported{
+			Name:       toImport.Name,
+			Single:     !toImport.Selector.IsWildcard(),
+			IsTemplate: toImport.Selector.KGV == "html/template/v1",
+			Manifests:  expanded,
+		})
+	}
+	return imports, nil
+}
+
+// ResolveDynamicImports computes all imports selectors that need details from
+// the manifest that is importing them to complete the work.
+func (m *Manifest) ResolveDynamicImports(index *Index, context *Manifest) ([]*AsImported, error) {
+	var imports []*AsImported
+	for _, toImport := range m.Render.ImportsDynamic {
+		expanded, err := toImport.Resolve(index, context)
+		if err != nil {
+			return nil, err
+		}
+		imports = append(imports, &AsImported{
+			Name:       toImport.Name,
+			Single:     !toImport.Selector.IsWildcard(),
+			IsTemplate: toImport.Selector.KGV == "html/template/v1",
+			Manifests:  expanded,
+		})
+	}
+	return imports, nil
+}
+
+/*
+func newFromCache(data []byte, cacheDir string) (*Manifest, error) {
+	digest := hash.Sum256(data)
+	cacheFile := filepath.Join(cacheDir,  hex.EncodeToString(digest[:]))
+	gobReader, gobErr := os.Open(cacheFile)
+	if gobErr != nil {
+		return nil, gobErr
+	}
+	defer gobReader.Close()
+	var manifest *Manifest
+	if err := gob.NewDecoder(gobReader).Decode(manifest); err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}
+
+func saveToCache(manifest *Manifest, cacheDir string) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(manifest); err != nil {
+		return err
+	}
+	digest := hash.Sum256(manifest.Raw)
+	cacheFile := filepath.Join(cacheDir, hex.EncodeToString(digest[:]))
+	return ioutil.WriteFile(cacheFile, buf.Bytes(), 0644)
+}
+*/
 
 // New creates a manifest from a json-encoded byte array or a yaml-front-matter
 // having byte array. If front-matter is found, the content below it is assigned
-// to `.Spec.Body` (overwriting any content that may be there).
+// to `.Spec.content` (overwriting any content that may be there).
 func New(data []byte, source string) ([]*Manifest, error) {
-	var delim = []byte("---")
+	//manifest, cacheErr := newFromCache(data, ".cache")
+	//if cacheErr != nil {
+	var manifest *Manifest
+	var delimiter = []byte("---")
 	var err error
 	body := append([]byte{}, data...)
 	// Process front-matter, if any.
-	if bytes.HasPrefix(body, delim) {
-		parts := bytes.SplitN(body, delim, 3)
+	if bytes.HasPrefix(body, delimiter) {
+		parts := bytes.SplitN(body, delimiter, 3)
 		if body, err = yaml.YAMLToJSON(parts[1]); err != nil {
 			return nil, err
 		}
@@ -235,25 +304,46 @@ func New(data []byte, source string) ([]*Manifest, error) {
 			}
 		}
 	}
-	var manifest *Manifest
 	if err = json.Unmarshal(body, &manifest); err != nil {
 		return nil, fmt.Errorf("json unmarshal: %w", err)
 	}
-	manifest.Raw = data
-	manifest.Json = body
+	if manifest.Meta == nil {
+		manifest.Meta = &Meta{}
+	}
+	if manifest.Render == nil {
+		manifest.Render = &Render{}
+	}
 	if err := manifest.Validate(); err != nil {
 		return nil, err
 	}
-	manifest.source = source
-	// generate manifests embedded in this one
-	generated, generateErr := manifest.Generate()
-	if generateErr != nil {
-		return nil, generateErr
+	if manifest.Meta.HrefBase == "" {
+		manifest.Meta.HrefBase = "/"
 	}
-	if len(generated) > 0 {
-		return append(generated, manifest), nil
+	if manifest.Meta.Href == "" {
+		manifest.Meta.Href = "index.html"
 	}
-	return []*Manifest{manifest}, nil
+	if manifest.Meta.Href != "" {
+		parse, timeErr := strftime.New(manifest.Meta.Href)
+		if timeErr != nil {
+			return nil, timeErr
+		}
+		manifest.Meta.Href = parse.FormatString(manifest.PublishAt())
+	}
+	manifest.Raw = data
+	//}
+	manifest.Source = source
+	//go saveToCache(manifest, ".cache")
+	var manifests []*Manifest
+	if manifest.GenerateManifests != nil {
+		for _, generator := range manifest.GenerateManifests {
+			created, err := generator.Generate(manifest)
+			if err != nil {
+				return nil, fmt.Errorf("%s: generateManifests: %s: %w", manifest, generator.Name, err)
+			}
+			manifests = append(manifests, created...)
+		}
+	}
+	return append(manifests, manifest), nil
 }
 
 // NewFromFile creates a manifest from a source file.
@@ -275,12 +365,13 @@ func NewFromFile(filepath string) ([]*Manifest, error) {
 	return manifest, nil
 }
 
-// NewFromReader creates an array of manifests from a provided reader taking the
-// assumption that the reader contains one manifest per line.
-func NewFromReader(input io.Reader) ([]*Manifest, error) {
+type progressFn func(int, <-chan struct{})
+
+// NewFromReader creates manifests from a provided reader taking the assumption
+// that the reader contains one json-encoded manifest per line.
+func NewFromReader(input io.Reader, watch progressFn) ([]*Manifest, error) {
 	reader := bufio.NewReader(input)
-	queue := make(chan *Manifest)
-	eg := errgroup.Group{}
+	var docs [][]byte
 	for {
 		raw, err := reader.ReadBytes('\n')
 		if errors.Is(err, io.EOF) {
@@ -289,74 +380,55 @@ func NewFromReader(input io.Reader) ([]*Manifest, error) {
 		if len(bytes.TrimSpace(raw)) == 0 {
 			continue
 		}
-		eg.Go(func() error {
-			manifests, err := New(bytes.TrimRight(raw, "\n"), "stream")
-			if err != nil {
-				return fmt.Errorf("%s: %w", raw, err)
-			}
-			for _, manifest := range manifests {
-				queue <- manifest
-			}
-			return nil
-		})
+		docs = append(docs, bytes.TrimRight(raw, "\n"))
 	}
-	collector := errgroup.Group{}
 	var manifests []*Manifest
-	collector.Go(func() error {
-		for manifest := range queue {
-			manifests = append(manifests, manifest)
+	progress := make(chan struct{})
+	go watch(len(docs), progress)
+	for _, doc := range docs {
+		progress <- struct{}{}
+		results, err := New(doc, "stream")
+		if err != nil {
+			return nil, fmt.Errorf("\n---\n%s\n---\n: %w", doc, err)
 		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return nil, err
+		manifests = append(manifests, results...)
 	}
-	close(queue)
-	collector.Wait()
+	close(progress)
 	return manifests, nil
 }
 
-// NewFromDirectory creates an array of manifests from a provided directory by
-// traversing every file in every directory from a specified parent.
-func NewFromDirectory(dir string) ([]*Manifest, error) {
-	queue := make(chan *Manifest)
-	eg, egCtx := errgroup.WithContext(context.Background())
-	sem := semaphore.NewWeighted(10)
-	eg.Go(func() error {
-		return filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
+// NewFromDirs creates manifests from all files found in an array of supplied
+// directories.
+func NewFromDirs(dirs []string, watch progressFn) ([]*Manifest, error) {
+	var files []string
+	for _, dir := range dirs {
+		if err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
 			if f.IsDir() {
-				return nil
-			}
-			if err := sem.Acquire(egCtx, 1); err != nil {
-				return err
-			}
-			eg.Go(func() error {
-				defer sem.Release(1)
-				manifests, err := NewFromFile(path)
-				if err != nil {
-					return err
-				}
-				for _, manifest := range manifests {
-					queue <- manifest
+				if strings.HasPrefix(f.Name(), ".") {
+					return filepath.SkipDir
 				}
 				return nil
-
-			})
+			}
+			if strings.HasPrefix(filepath.Base(f.Name()), ".") {
+				return nil
+			}
+			files = append(files, path)
 			return nil
-		})
-	})
-	collector := errgroup.Group{}
-	var manifests []*Manifest
-	collector.Go(func() error {
-		for manifest := range queue {
-			manifests = append(manifests, manifest)
+		}); err != nil {
+			return nil, err
 		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return nil, err
 	}
-	close(queue)
-	collector.Wait()
+	var manifests []*Manifest
+	progress := make(chan struct{})
+	go watch(len(files), progress)
+	for _, path := range files {
+		results, err := NewFromFile(path)
+		if err != nil {
+			return nil, err
+		}
+		manifests = append(manifests, results...)
+		progress <- struct{}{}
+	}
+	close(progress)
 	return manifests, nil
 }

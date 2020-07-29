@@ -5,34 +5,41 @@ namespace: post
 name: layout
 meta:
   live: true
-  embed:
-    list: { selector: html/template/v1/related/list }
-    paginate: { selector: html/template/v1/related/paginate }
-spec:
-  body: |-
-    <h1><a href="{{ .HrefCanonical }}">{{ .Spec.Title }}</a></h1>
-    {{- $authors := (.Related "website/content/v1/author/*" .Root) -}}
-    {{ if $authors }}
-    <ul class="byline">{{ template "list" $authors }}</ul>
+render:
+  imports:
+  - name: collectionList
+    selector: html/template/v1/collection/list
+  - name: topics
+    selector: website/page/v1/collection/topics
+  - name: eras
+    selector: website/page/v1/collection/eras
+  importsDynamic:
+  - name: relatedTopics
+    selector: website/page/v1/topic/*
+    matchIfRelatedToContext: true
+  - name: relatedEras
+    selector: website/page/v1/era/*
+    matchIfRelatedToContext: true
+  - name: relatedPosts
+    selector: website/page/v1/post/*
+    matchExpression:
+    - operator: InSameMonthAsContext
+    - operator: OnSameDayAsContext
+body: |-
+  {{ yield }}
+  {{ if relatedTopics }}
+    <h2><a href="{{ topics.HrefCanonical }}">Topics</a></h2>
+    <ul>{{ collectionList relatedTopics }}</ul>
+  {{ end }}
+  {{ if relatedEras }}
+    <h2><a href="{{ eras.HrefCanonical }}">Eras</a></h2>
+    <ul>{{ collectionList relatedEras }}</ul>
+  {{ end }}
+  {{ if relatedPosts }}
+    <h2>In Years Past and Future</h2>
+    <ul>
+    {{ range $post := relatedPosts }}
+      <li><a href="{{ $post.HrefCanonical }}">{{ $post.Meta.PublishAt.Year }} - {{ $post.Title }}</a></li>
     {{ end }}
-    <p class="content">
-    {{ yield }}
-    </p>
-    {{- $related := (.Related "website/content/v1/topic/*" .Root) -}}
-    {{ if $related }}
-      <h2>Topics</h2>
-      <ul>{{ template "list" $related }}</ul>
-    {{ end }}
-    {{- $eras := (.Related "website/content/v1/era/*" .Root) -}}
-    {{ if $eras }}
-      <h2>Eras</h2>
-      <ul>{{ template "list" $eras }}</ul>
-    {{ end }}
-    {{/*
-    {{- $sameday := .PublishedSameDayMonth -}}
-    {{ if $sameday }}
-      <h2>In Years Past and Future</h2>
-      <ul>{{ template "list" $sameday }}</ul>
-    {{ end }}
-    */}}
-    {{ template "paginate" . }}
+    </ul>
+  {{ end }}

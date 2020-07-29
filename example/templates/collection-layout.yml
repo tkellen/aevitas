@@ -1,0 +1,21 @@
+kind: html
+group: template
+version: v1
+namespace: collection
+name: layout
+meta:
+  live: true
+render:
+  importsDynamic:
+  - name: posts
+    selector: website/page/v1/post/*
+    matchIfRelatedToContext: true
+body: |-
+  {{ yield }}
+  {{ if posts }}
+    <ul>
+    {{ range $post := posts }}
+      <li><a href="{{ $post.Href }}">{{ $post.Title }}</a></li>
+    {{ end }}
+    </ul>
+  {{ end }}

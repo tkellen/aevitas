@@ -1,20 +1,16 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: post
 name: draft
 meta:
   live: false
-  relations:
-  - selector: website/content/v1/author/tyler
-  - selector: website/content/v1/era/early-days
-  - selector: website/content/v1/topic/even
-  renderTemplates:
-  - html/template/v1/post/layout
-  - html/template/v1/default/layout
-spec:
-  href: draft.html
   title: Draft Post
-  body: |-
-    <p>Post numero cuatro.</p>
+  href: /%Y/%m/draft.html
+relations:
+- selector: website/page/v1/author/tyler
+- selector: website/page/v1/era/early-days
+- selector: website/page/v1/topic/even
+body: |-
+  <p>Post numero cuatro.</p>
 

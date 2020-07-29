@@ -1,0 +1,15 @@
+kind: website
+group: page
+version: v1
+namespace: collection
+name: authors
+meta:
+  live: true
+  title: Authors
+  href: /author/index.html
+render:
+  imports:
+  - name: items
+    selector: website/page/v1/author/*
+body: |-
+  {{ items }}

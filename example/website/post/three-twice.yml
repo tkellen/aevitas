@@ -1,24 +1,25 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: post
 name: three-twice
 meta:
   live: true
+  title: Second Post Today
+  href: /%Y/%m/three-twice.html
   publishAt:
-    year: 2020
+    year: 2019
     month: 7
     day: 3
     hour: 1
-  relations:
-  - selector: website/content/v1/author/tyler
-  - selector: website/content/v1/era/early-days
-  renderTemplates:
-  - html/template/v1/post/layout
-  - html/template/v1/default/layout
-spec:
-  href: /2020/07/three-twice.html
-  title: Second Post Today
-  body: |-
-    <p>Another post today!</p>
+relations:
+- selector: website/page/v1/author/tyler
+- selector: website/page/v1/era/early-days
+render:
+  imports:
+  - name: firstPostToday
+    selector: website/page/v1/post/three
+body: |-
+  <p>Another post today!</p>
+  <a href="{{ firstPostToday.HrefCanonical }}">first post today</a>
 

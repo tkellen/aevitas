@@ -1,0 +1,80 @@
+.a11y-only {
+    border: 0;
+    clip: rect(0 0 0 0);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    width: 1px;
+}
+.a11y-only:active,
+.a11y-only:focus {
+    clip: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    position: static;
+    width: auto;
+}
+
+/* clip a 3px by 3px angle on the right corners of a box */
+.clip-right {
+    -webkit-clip-path: polygon(
+            0% 0%,
+            calc(100% - 3px) 0%,
+            100% 3px,
+            100% calc(100% - 3px),
+            calc(100% - 3px) 100%,
+            0% 100%,
+            0% 0%
+    );
+    clip-path: polygon(
+            0% 0%,
+            calc(100% - 3px) 0%,
+            100% 3px,
+            100% calc(100% - 3px),
+            calc(100% - 3px) 100%,
+            0% 100%,
+            0% 0%
+    );
+}
+
+/* clip a 3px by 3px angle on the left corners of a box */
+.clip-left {
+    -webkit-clip-path: polygon(
+            3px 0%,
+            100% 0%,
+            100% 100%,
+            3px 100%,
+            0% calc(100% - 3px),
+            0% 3px
+    );
+    clip-path: polygon(
+            3px 0%,
+            100% 0%,
+            100% 100%,
+            3px 100%,
+            0% calc(100% - 3px),
+            0% 3px
+    );
+}
+
+.clip-all {
+    -webkit-clip-path: polygon(
+            3px 0%,
+            100% 0%,
+            100% 100%,
+            3px 100%,
+            0% calc(100% - 3px),
+            0% 3px
+    );
+    clip-path: polygon(
+            3px 0%,
+            100% 0%,
+            100% 100%,
+            3px 100%,
+            0% calc(100% - 3px),
+            0% 3px
+    );
+}

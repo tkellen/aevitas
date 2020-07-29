@@ -2,7 +2,9 @@ package manifest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"github.com/tkellen/aevitas/internal/selector"
 	"sort"
 	"strings"
 )
@@ -15,10 +17,9 @@ type Index struct {
 
 // NewIndex does just what you think it does.
 func NewIndex() *Index {
-	index := &Index{
+	return &Index{
 		content: newIndex(),
 	}
-	return index
 }
 
 // String returns the count for each shard in the index as a coarse debugging
@@ -32,7 +33,6 @@ func (i *Index) String() string {
 	}
 	sort.Strings(shards)
 	for _, shard := range shards {
-		sort.Sort(i.content.shard[shard])
 		totals = append(totals, fmt.Sprintf(format, shard, len(i.content.shard[shard].manifests)))
 	}
 	return strings.Join(totals, "\n")
@@ -43,24 +43,21 @@ func (i *Index) String() string {
 // computed set of relations. In practice, inserting all manifests currently
 // happens once and the index is read-only after that. If that changes, this
 // will likely require revision.
-func (i *Index) Insert(manifests ...*Manifest) (*Index, error) {
+func (i *Index) Insert(manifests ...*Manifest) error {
 	i.relations = nil
-	if err := i.content.insert(manifests...); err != nil {
-		return nil, err
-	}
-	return i, nil
+	return i.content.insert(manifests...)
 }
 
 // FindMany produces an array of manifests whose selectors match the one provided.
-func (i *Index) FindMany(target *Selector) ([]*Manifest, error) {
-	shard, shardErr := i.shardOf(target)
-	if shardErr != nil {
-		return nil, shardErr
-	}
+func (i *Index) FindMany(target *selector.Selector) ([]*Manifest, error) {
 	if target.IsWildcard() {
+		shard, shardErr := i.content.shardOf(target)
+		if shardErr != nil {
+			return nil, shardErr
+		}
 		return shard.manifests, nil
 	}
-	match, err := shard.findOne(target)
+	match, err := i.content.findOne(target, false)
 	if err != nil {
 		return nil, err
 	}
@@ -68,17 +65,13 @@ func (i *Index) FindMany(target *Selector) ([]*Manifest, error) {
 }
 
 // FindMany locates a single manifest based on the selector provided.
-func (i *Index) FindOne(target *Selector) (*Manifest, error) {
-	shard, shardErr := i.shardOf(target)
-	if shardErr != nil {
-		shard = i.content.all
-	}
-	return shard.findOne(target)
+func (i *Index) FindOne(target *selector.Selector) (*Manifest, error) {
+	return i.content.findOne(target, false)
 }
 
 // Next finds the next latest manifest within the target's KGVN.
 func (i *Index) Next(target *Manifest) *Manifest {
-	shard, shardErr := i.shardOf(target.Selector)
+	shard, shardErr := i.content.shardOf(target.Selector)
 	if shardErr != nil {
 		return nil
 	}
@@ -87,7 +80,7 @@ func (i *Index) Next(target *Manifest) *Manifest {
 
 // Prev finds the next earliest manifest within the target's KGVN.
 func (i *Index) Prev(target *Manifest) *Manifest {
-	shard, shardErr := i.shardOf(target.Selector)
+	shard, shardErr := i.content.shardOf(target.Selector)
 	if shardErr != nil {
 		return nil
 	}
@@ -106,7 +99,7 @@ func (i *Index) RelatedIndex(target *Manifest) (*Index, error) {
 	return nil, fmt.Errorf("unable to find relationships for %s", target)
 }
 
-func (i *Index) isRelated(target *Manifest, mustRelateTo *Selector) (bool, error) {
+func (i *Index) isRelated(target *Manifest, mustRelateTo *selector.Selector) (bool, error) {
 	relations, relatedIndexErr := i.RelatedIndex(target)
 	if relatedIndexErr != nil {
 		return false, relatedIndexErr
@@ -115,7 +108,7 @@ func (i *Index) isRelated(target *Manifest, mustRelateTo *Selector) (bool, error
 	// single other manifest.
 	if !mustRelateTo.IsWildcard() {
 		// The match is valid if it is directly related to mustRelateTo.
-		_, findOneErr := relations.FindOne(mustRelateTo)
+		_, findOneErr := relations.content.findOne(mustRelateTo, true)
 		if findOneErr != nil {
 			return false, findOneErr
 		}
@@ -124,86 +117,87 @@ func (i *Index) isRelated(target *Manifest, mustRelateTo *Selector) (bool, error
 	// If the mustRelateTo selector is a wildcard, a match is valid when it has
 	// a relationship with _any_ manifest that matches the mustRelateTo shard
 	// (aka kind/group/version/namespace)
-	_, shardOfErr := relations.shardOf(mustRelateTo)
+	_, shardOfErr := relations.content.shardOf(mustRelateTo)
 	if shardOfErr != nil {
 		return false, shardOfErr
 	}
 	return true, nil
 }
 
-func (i *Index) FindOneWithRelation(target *Selector, mustRelateTo *Selector) (*Manifest, error) {
-	match, findErr := i.FindOne(target)
-	if findErr != nil {
-		return nil, findErr
-	}
-	ok, err := i.isRelated(match, mustRelateTo)
-	if err != nil {
-		return nil, err
-	}
-	if ok {
-		return match, nil
-	}
-	return nil, nil
-}
-
 // FindManyWithRelation searches the relationships of a source selector for any
 // manifests that are related to the mustRelateTo selector.
-func (i *Index) FindManyWithRelation(target *Selector, mustRelateTo *Selector) ([]*Manifest, error) {
+func (i *Index) FindManyWithRelation(target *selector.Selector, mustRelateTo *selector.Selector) ([]*Manifest, error) {
 	matches, findErr := i.FindMany(target)
 	if findErr != nil {
 		return nil, findErr
 	}
 	var validMatches []*Manifest
 	for _, match := range matches {
-		ok, _ := i.isRelated(match, mustRelateTo)
-		if ok {
+		if ok, _ := i.isRelated(match, mustRelateTo); ok {
 			validMatches = append(validMatches, match)
 		}
 	}
 	return validMatches, nil
 }
 
-func (i *Index) shardOf(target *Selector) (*shard, error) {
-	shardKey := target.KGVN()
-	shard, exists := i.content.shard[shardKey]
-	if exists {
-		return shard, nil
-	}
-	return nil, fmt.Errorf("%s is empty", shardKey)
-}
-
-func (i *Index) ComputeRelations() error {
+func (i *Index) Collate() error {
 	i.relations = map[*Manifest]*index{}
-	for _, item := range i.content.all.manifests {
-		relatedSelectors, relatedErr := item.relations(i)
-		if relatedErr != nil {
-			return relatedErr
-		}
-		for _, selector := range relatedSelectors {
-			if !selector.IsWildcard() {
-				related, err := i.FindOne(selector)
+	totalCount := 0
+	lastCount := -1
+	// Because relationships can be indirect, this repeatedly passes over the
+	// index until all relationships are resolved.
+	for lastCount != totalCount {
+		lastCount = totalCount
+		totalCount = 0
+		for _, item := range i.content.all.manifests {
+			if item.Meta == nil {
+				continue
+			}
+			var related []*Manifest
+			for _, relation := range append(item.Render.Imports, item.Relations...) {
+				expanded, err := relation.Resolve(i)
 				if err != nil {
-					return fmt.Errorf("%s: %w", item, err)
+					return fmt.Errorf("%s: resolving relations: %w", item, err)
 				}
-				i.addRelation(item, related)
-			} else {
-				return fmt.Errorf("%s: wildcard not allowed", selector)
+				related = append(related, expanded...)
+			}
+			totalCount = totalCount + len(related)
+			// skip redundant passes
+			if m, ok := i.relations[item]; ok {
+				if len(m.byID) == len(related) {
+					continue
+				}
+			}
+			if err := i.addRelation(item, related...); err != nil {
+				return fmt.Errorf("adding relations to %s: %w", item, err)
 			}
 		}
+	}
+	i.content.collate()
+	for _, index := range i.relations {
+		index.collate()
 	}
 	return nil
 }
 
 // addRelation records a relationship from one manifest to another and the
 // inverse relationship back.
-func (i *Index) addRelation(parent *Manifest, related ...*Manifest) {
+func (i *Index) addRelation(parent *Manifest, manifests ...*Manifest) error {
 	if _, ok := i.relations[parent]; !ok {
 		i.relations[parent] = newIndex()
 	}
-	// Make parent related to all supplied manifests. Ignore duplicate insertion
+	relations := make([]*Manifest, len(manifests))
+	for idx, m := range manifests {
+		manifest, err := i.FindOne(m.Selector)
+		if err != nil {
+			return fmt.Errorf("%s: %w", m, err)
+		}
+		relations[idx] = manifest
+	}
+	// Make parent relations to all supplied manifests. Ignore duplicate insertion
 	// errors as this is expected.
-	_ = i.relations[parent].insert(related...)
-	for _, target := range related {
+	_ = i.relations[parent].insert(relations...)
+	for _, target := range relations {
 		if _, ok := i.relations[target]; !ok {
 			i.relations[target] = newIndex()
 		}
@@ -211,123 +205,148 @@ func (i *Index) addRelation(parent *Manifest, related ...*Manifest) {
 		// insertion errors as this is expected.
 		_ = i.relations[target].insert(parent)
 	}
+	return nil
 }
 
 type index struct {
-	all   *shard            // all manifests.
-	shard map[string]*shard // manifests sharded by KGVN
+	all     *shard // all manifests.
+	byID    map[string]*Manifest
+	notLive map[string]*Manifest
+	shard   map[string]*shard // manifests sharded by KGVN
 }
 
 func newIndex() *index {
 	return &index{
-		all:   newShard(),
-		shard: map[string]*shard{},
+		all:     newShard(),
+		byID:    map[string]*Manifest{},
+		notLive: map[string]*Manifest{},
+		shard:   map[string]*shard{},
 	}
+}
+
+func (i *index) shardOf(target *selector.Selector) (*shard, error) {
+	shardKey := target.KGVN
+	shard, exists := i.shard[shardKey]
+	if exists {
+		return shard, nil
+	}
+	return nil, fmt.Errorf("%s is empty", shardKey)
+}
+
+func (i *index) collate() {
+	i.all.collate()
+	for _, shard := range i.shard {
+		shard.collate()
+	}
+}
+
+var notFound = errors.New("resource not found")
+
+func (i *index) findOne(target *selector.Selector, fastError bool) (*Manifest, error) {
+	id := target.ID()
+	manifest, found := i.byID[id]
+	if !found {
+		if fastError {
+			// this is in a hot path to validate relationships. when used in
+			// this manner errors are ignored and the cost of producing them can
+			// be eliminated.
+			return nil, notFound
+		}
+		if m, notLive := i.notLive[id]; notLive {
+			return nil, fmt.Errorf("%s: must be \"live\" to be used", m)
+		}
+		return nil, fmt.Errorf("%w: %s", notFound, target.ID())
+	}
+	return manifest, nil
 }
 
 // insert adds N manifests to the index.
 func (i *index) insert(manifests ...*Manifest) error {
-	for _, manifest := range manifests {
-		if err := i.all.insert(manifest); err != nil {
-			return err
+	var collisions bytes.Buffer
+	for _, m := range manifests {
+		id := m.Selector.ID()
+		// skip unpublished resources (save for helpful error messages though).
+		if !m.IsLive() {
+			i.notLive[id] = m
+			continue
 		}
-		// shard index by kind group version namespace
-		shardKey := manifest.Selector.KGVN()
+		// skip repeated inserts (but collect errors).
+		if _, ok := i.byID[id]; ok {
+			collisions.WriteString(fmt.Sprintf("%s\n", m.Selector))
+			continue
+		}
+		i.byID[id] = m
+		i.all.insert(m)
+		// shard index by kind group version namespace.
+		shardKey := m.Selector.KGVN
 		shard, ok := i.shard[shardKey]
 		if !ok {
 			i.shard[shardKey] = newShard()
 			shard = i.shard[shardKey]
 		}
-		if err := shard.insert(manifest); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// shard holds a collection of manifests.
-type shard struct {
-	manifests []*Manifest
-	byID      map[string]*Manifest
-	notLive   map[string]*Manifest
-}
-
-// newShard does just what you think it does.
-func newShard() *shard {
-	return &shard{
-		manifests: []*Manifest{},
-		byID:      map[string]*Manifest{},
-		notLive:   map[string]*Manifest{},
-	}
-}
-
-func (l shard) Len() int {
-	return len(l.manifests)
-}
-
-func (l shard) Swap(i, j int) {
-	l.manifests[i], l.manifests[j] = l.manifests[j], l.manifests[i]
-}
-
-func (l shard) Less(i, j int) bool {
-	return l.manifests[i].Less(l.manifests[j])
-}
-
-func (l *shard) findOne(target *Selector) (*Manifest, error) {
-	id := target.ID()
-	manifest, found := l.byID[id]
-	if !found {
-		if m, notLive := l.notLive[id]; notLive {
-			return nil, fmt.Errorf("%s: must be \"live\" to be used", m)
-		}
-		return nil, fmt.Errorf("%s: not found", id)
-	}
-	return manifest, nil
-}
-
-func (l *shard) next(target *Manifest) *Manifest {
-	var result *Manifest
-	for _, item := range l.manifests {
-		if item.Less(target) && (result == nil || item.Greater(result)) {
-			result = item
-		}
-	}
-	return result
-}
-
-func (l *shard) previous(target *Manifest) *Manifest {
-	var result *Manifest
-	for _, item := range l.manifests {
-		if item.Greater(target) && (result == nil || item.Less(result)) {
-			result = item
-		}
-	}
-	return result
-}
-
-// insert adds N manifests that are currently marked as live and, if there is a
-// publication date, that the date is older than the time this is run. If a
-// manifest of the same ID has been previously inserted, trigger an error. This
-// error is for detecting duplicates during initial index creation.
-func (l *shard) insert(manifests ...*Manifest) error {
-	var collisions bytes.Buffer
-	for _, manifest := range manifests {
-		id := manifest.Selector.ID()
-		// Skip unpublished resources (save for helpful error messages though)
-		if !manifest.IsLive() {
-			l.notLive[id] = manifest
-			continue
-		}
-		// There is an entry for this manifest already, collect the collision.
-		if _, ok := l.byID[id]; ok {
-			collisions.WriteString(fmt.Sprintf("%s\n", manifest.Selector))
-		}
-		l.byID[id] = manifest
-		l.manifests = append(l.manifests, manifest)
+		shard.insert(m)
 	}
 	// If there were any collisions, enumerate them all in the returned error.
 	if collisions.Len() > 0 {
 		return fmt.Errorf("collisions:\n%s", collisions.String())
 	}
 	return nil
+}
+
+type manifestList []*Manifest
+
+func (l manifestList) Len() int           { return len(l) }
+func (l manifestList) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l manifestList) Less(i, j int) bool { return l[i].Less(l[j]) }
+
+// shard holds a collection of manifests indexed to support common operations.
+type shard struct {
+	manifests []*Manifest
+	collated  bool
+	before    map[*Manifest]*Manifest
+	after     map[*Manifest]*Manifest
+}
+
+// newShard does just what you think it does.
+func newShard() *shard {
+	return &shard{
+		manifests: []*Manifest{},
+	}
+}
+
+func (l *shard) collate() {
+	sort.Sort(manifestList(l.manifests))
+	l.before = map[*Manifest]*Manifest{}
+	l.after = map[*Manifest]*Manifest{}
+	count := len(l.manifests)
+	if count > 1 {
+		for idx, manifest := range l.manifests {
+			if idx != 0 {
+				l.before[manifest] = l.manifests[idx-1]
+			}
+			if idx+1 < count {
+				l.after[manifest] = l.manifests[idx+1]
+			}
+		}
+	}
+	l.collated = true
+}
+
+func (l *shard) next(compare *Manifest) *Manifest {
+	return l.after[compare]
+}
+
+func (l *shard) previous(compare *Manifest) *Manifest {
+	return l.before[compare]
+}
+
+// insert adds N manifests that are currently marked as live and, if there is a
+// publication date, that the date is older than the time this is run. If a
+// manifest of the same ID has been previously inserted, trigger an error. This
+// error is for detecting duplicates during initial index creation.
+func (l *shard) insert(manifests ...*Manifest) {
+	l.collated = false
+	for _, manifest := range manifests {
+		l.manifests = append(l.manifests, manifest)
+	}
 }

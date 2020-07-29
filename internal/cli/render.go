@@ -1,94 +1,118 @@
 package cli
 
 import (
-	"fmt"
-	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"github.com/tkellen/aevitas/pkg/resource"
-	assetv1 "github.com/tkellen/aevitas/pkg/resource/v1/asset"
-	configv1 "github.com/tkellen/aevitas/pkg/resource/v1/config"
-	htmlv1 "github.com/tkellen/aevitas/pkg/resource/v1/html"
-	websitev1 "github.com/tkellen/aevitas/pkg/resource/v1/website"
+	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
+	"golang.org/x/sync/errgroup"
 	"os"
+	"sync"
+	"time"
 )
 
 type RenderCmd struct {
 	Load        []string `name:"load" short:"l" type:"existingdir" help:"Directory containing manifests."`
 	Concurrency int64    `help:"Control how many parallel renders can be run" default:10`
-	AssetRoot   string   `required name:"asset" short:"a" type:"existingdir" help:"Root path to assets." default:"${cwd}"`
+	AssetRoot   string   `required name:"asset" short:"a" type:"existingdir" help:"Tree path to assets." default:"${cwd}"`
 	Output      string   `required name:"output" short:"o" help:"Path for output."`
 	Selector    string   `arg required name:"selector" help:"manifest to render."`
 }
 
+func progress(wg sync.WaitGroup, ui *mpb.Progress, name string) func(count int, progress <-chan struct{}) {
+	wg.Add(1)
+	return func(count int, progress <-chan struct{}) {
+		bar := ui.AddBar(
+			int64(count),
+			mpb.PrependDecorators(
+				decor.Name(" "+name),
+			),
+			mpb.AppendDecorators(
+				decor.Counters(count, "%d / %d ", decor.WCSyncSpace),
+			),
+		)
+		for range progress {
+			bar.Increment()
+		}
+	}
+}
+
 func (r *RenderCmd) Run(ctx *Context) error {
 	stat, _ := ctx.Stdin.Stat()
-	var manifests []*manifest.Manifest
-	// Collect any manifests provided over standard in.
+	var wg sync.WaitGroup
+	// pass &wg (optional), so p will wait for it eventually
+	ui := mpb.New(
+		mpb.WithWidth(180),
+		mpb.WithRefreshRate(180*time.Millisecond),
+		mpb.WithWaitGroup(&wg),
+	)
+	eg := errgroup.Group{}
+	queue := make(chan *manifest.Manifest)
+	// Collect manifests provided over standard in.
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		list, err := manifest.NewFromReader(ctx.Stdin)
-		if err != nil {
-			return err
-		}
-		manifests = append(manifests, list...)
+		eg.Go(func() error {
+			list, err := manifest.NewFromReader(ctx.Stdin, progress(wg, ui, "reading stdin"))
+			if err != nil {
+				return err
+			}
+			for _, manifest := range list {
+				queue <- manifest
+			}
+			return nil
+		})
 	}
 	// Collect manifests in provided paths.
-	for _, path := range r.Load {
-		list, err := manifest.NewFromDirectory(path)
+	eg.Go(func() error {
+		list, err := manifest.NewFromDirs(r.Load, progress(wg, ui, "reading files"))
 		if err != nil {
 			return err
 		}
-		manifests = append(manifests, list...)
+		for _, manifest := range list {
+			queue <- manifest
+		}
+		return nil
+	})
+	collect := errgroup.Group{}
+	var manifests []*manifest.Manifest
+	collect.Go(func() error {
+		for manifest := range queue {
+			manifests = append(manifests, manifest)
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return err
 	}
-	index, indexErr := manifest.NewIndex().Insert(manifests...)
-	if indexErr != nil {
-		return indexErr
+	close(queue)
+	if err := collect.Wait(); err != nil {
+		return err
+	}
+	// Index manifests.
+	index := manifest.NewIndex()
+	if err := index.Insert(manifests...); err != nil {
+		return err
+	}
+	if err := index.Collate(); err != nil {
+		return err
 	}
 	// Establish registry to locate assets.
 	inputRoot := osfs.New(r.AssetRoot)
 	outputRoot := osfs.New(r.Output)
-	factory := defaultFactory(inputRoot, outputRoot)
-	ctx.Logger.Stderr.Printf("...rendering %s with concurrency of %d.\n", r.Selector, r.Concurrency)
-	// findOne element to render
-	root, err := resource.New(r.Selector, index, factory)
-	if err != nil {
+	factory := resource.DefaultFactory(inputRoot, outputRoot)
+	rt, rsErr := resource.NewTree(r.Selector, index, factory)
+	if rsErr != nil {
+		return rsErr
+	}
+	if err := rt.Render(
+		ctx.Background,
+		r.Concurrency,
+		progress(wg, ui, "render assets"),
+		progress(wg, ui, "render pages "),
+	); err != nil {
 		return err
 	}
-	return root.Render(ctx.Background, r.Concurrency)
+	wg.Wait()
+	return nil
 }
 
-func defaultFactory(
-	source billy.Filesystem,
-	dest billy.Filesystem,
-) *resource.Factory {
-	factory := resource.NewFactory(source, dest)
-	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVGif), func(m *manifest.Manifest) (interface{}, error) {
-		return assetv1.NewGif(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVJpeg), func(m *manifest.Manifest) (interface{}, error) {
-		return assetv1.NewJpeg(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVPng), func(m *manifest.Manifest) (interface{}, error) {
-		return assetv1.NewPng(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVMpeg), func(m *manifest.Manifest) (interface{}, error) {
-		return assetv1.NewMpeg(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", configv1.KGVData), func(m *manifest.Manifest) (interface{}, error) {
-		return configv1.NewData(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", configv1.KGVTemplate), func(m *manifest.Manifest) (interface{}, error) {
-		return configv1.NewTemplate(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", htmlv1.KGVTemplate), func(m *manifest.Manifest) (interface{}, error) {
-		return htmlv1.NewTemplate(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVDomain), func(m *manifest.Manifest) (interface{}, error) {
-		return websitev1.NewDomain(m)
-	})
-	factory.Register(fmt.Sprintf("%s/*/*", websitev1.KGVContent), func(m *manifest.Manifest) (interface{}, error) {
-		return websitev1.NewContent(m)
-	})
-
-	return factory
-}

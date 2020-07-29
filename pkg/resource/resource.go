@@ -1,521 +1,310 @@
-// Package resource presents a common interface for rendering any resource type.
 package resource
 
 import (
 	"bytes"
-	"context"
-	"errors"
 	"fmt"
-	"github.com/go-git/go-billy/v5"
 	"github.com/orcaman/concurrent-map"
 	"github.com/tkellen/aevitas/pkg/manifest"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 	"html/template"
-	"os"
 	"path"
 	"reflect"
-	"strings"
+	"strconv"
 )
 
-// Resource represents a manifest in a form that can be rendered.
+// Resource describes a manifest with all of its selectors resolved in a form
+// that can be used for rendering.
 type Resource struct {
-	// Root is the top of the resource graph (the first resource instantiated).
+	*manifest.Manifest
+	// Root refers to the top level resource.
 	Root *Resource
 	// Parent refers to the resource that caused this to be instantiated.
 	Parent *Resource
-	// NavigationScopedByParent indicates if navigation of this resource should
-	// be limited in scope by the parent that created it. e.g. next/previous
-	// posts by the topic that "owns" them.
-	NavigationScopedByParent bool
-	// id is a unique identifier for the resource.
-	id string
-	// manifest describes the raw data used to instantiate the resource.
-	manifest *manifest.Manifest
-	// renderAsChild defines resources that will be rendered with this resource as
-	// the parent.
-	renderAsChild []*Resource
-	// embeds defines resources that will be made available by name during the
-	// rendering of this resource.
-	embeds []*Resource
-	// instance holds the concrete instance of this resource.
-	instance interface{}
-	// renderTemplates defines resources that will be applied in to produce
-	// text based output for the resource (typically html).
-	renderTemplates []*Resource
-	// factory is a reference to the config that determines how to instantiate
-	// a concrete resource.
-	factory       *Factory
-	source        billy.Filesystem
-	dest          billy.Filesystem
-	index         *manifest.Index
-	resourceCache cmap.ConcurrentMap
-	templateCache cmap.ConcurrentMap
+	// children holds a reference to all resources which should be rendered as
+	// a child of this one.
+	children []*Resource
+	// Templates holds the context needed to render this resource to text/html.
+	templates []*Resource
+	// Imports describes all resources required for rendering this resource.
+	imports []*AsImported
+	instance *instance
+	// index provides a mechanism for resources dynamically create more
+	index          *manifest.Index
+	factory        *Factory
+	resourceCache  cmap.ConcurrentMap
+	parsedTemplate *template.Template
 }
 
-// String returns a human readable representation of a resource.
-func (r *Resource) String() string {
-	if r.id != r.manifest.Selector.ID() {
-		return fmt.Sprintf("%s (%s)", r.manifest.Selector.ID(), r.id)
-	}
-	return r.id
+func NewResource(index *manifest.Index, factory *Factory, root *manifest.Manifest) (*Resource, error) {
+	return (&Resource{
+		index:         index,
+		factory:       factory,
+		resourceCache: cmap.New(),
+	}).New(root, nil, true)
 }
 
-// New instantiates a new resource from an existing one.
-func (r *Resource) New(
-	name string,
-	target *manifest.Selector,
-	renderTemplates []*manifest.Selector,
-) (*Resource, error) {
-	m, getErr := r.index.FindOne(target)
-	if getErr != nil {
-		return nil, getErr
+// collectChildren prevents cyclic dependencies
+func (r *Resource) New(self *manifest.Manifest, templates manifest.Templates, collectChildren bool) (*Resource, error) {
+	if len(templates) == 0 {
+		templates = self.Render.Templates
 	}
-	// Check if a resource like this has already been instantiated. If it has,
-	// make a copy using the correct parent. This saves substantial time during
-	// rendering.
-	cID := cacheID(m, renderTemplates)
-	if cached, ok := r.resourceCache.Get(cID); ok {
-		return cached.(*Resource).copyWithParent(name, r), nil
-	}
-	handler, handlerErr := r.factory.Handler(m)
-	if handlerErr != nil {
-		return nil, handlerErr
-	}
-	instance, err := handler.New(m)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", m, err)
-	}
-	el := &Resource{
-		Parent:        r,
+	resource := &Resource{
+		Manifest:      self,
 		Root:          r.Root,
-		factory:       r.factory,
-		source:        handler.source,
-		dest:          handler.dest,
-		id:            name,
-		instance:      instance,
-		manifest:      m,
+		Parent:        r,
 		index:         r.index,
+		factory:       r.factory,
 		resourceCache: r.resourceCache,
-		templateCache: r.templateCache,
 	}
-	if el.Root == nil {
-		el.Root = el
-		el.Parent = nil
+	if resource.Root == nil {
+		resource.Root = resource
+		resource.Parent = nil
 	}
-	// If there is no further metadata, the instantiation of this resource is
-	// complete.
-	if m.Meta == nil {
-		return el, nil
+	// Check if this manifest has already been instantiated as a resource with
+	// these templates. If it has, use the descendents from it. This saves
+	// substantial rendering time.
+	cID := self.Selector.ID() + templates.ID() + strconv.FormatBool(collectChildren)
+	if cached, ok := r.resourceCache.Get(cID); ok {
+		asResource := cached.(*Resource)
+		resource.instance = asResource.instance
+		resource.templates = asResource.templates
+		resource.children = asResource.children
+		resource.imports = asResource.imports
+		return resource, nil
 	}
-	// If explicit selectors were not supplied for rendering this resource,
-	// use the ones in the manifest.
-	if renderTemplates == nil {
-		renderTemplates = m.Meta.RenderTemplates
+	// Instantiate underlying custom type.
+	instance, newInstanceErr := newInstance(r.factory, self)
+	if newInstanceErr != nil {
+		return nil, fmt.Errorf("%s: %w", r, newInstanceErr)
 	}
-	// Instantiate the resources this resource will be rendered with.
-	for _, templateSelector := range renderTemplates {
-		tmpl, err := el.New(templateSelector.ID(), templateSelector, nil)
+	resource.instance = instance
+	// Populate all templates.
+	resolvedTemplates, templateResolveErr := templates.Resolve(r.index)
+	if templateResolveErr != nil {
+		return nil, templateResolveErr
+	}
+	for _, template := range resolvedTemplates {
+		t, newErr := resource.New(template, nil, false)
+		if newErr != nil {
+			return nil, newErr
+		}
+		resource.templates = append(resource.templates, t)
+	}
+	// Populate all children.
+	if collectChildren {
+		children, err := self.ResolveChildren(r.index)
 		if err != nil {
 			return nil, err
 		}
-		el.renderTemplates = append(el.renderTemplates, tmpl)
-	}
-	// Instantiate all embedded resources.
-	if err := m.EachEmbed(r.index, func(rt *manifest.RenderTarget) error {
-		dep, err := el.New(rt.Name, rt.Selector, rt.RenderTemplates)
-		if err != nil {
-			return err
-		}
-		el.embeds = append(el.embeds, dep)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	// Instantiate resources declared as renderAsChild of this one.
-	if err := m.EachChild(r.index, func(rt *manifest.RenderTarget) error {
-		dep, err := el.New(rt.Selector.ID(), rt.Selector, rt.RenderTemplates)
-		if err != nil {
-			return err
-		}
-		dep.NavigationScopedByParent = bool(rt.NavigationScopedByParent)
-		el.renderAsChild = append(el.renderAsChild, dep)
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	// Save this resource in cache.
-	r.resourceCache.Set(cID, el)
-	return el, nil
-}
-
-// Render recursively renders all resources associated with this resource.
-func (r *Resource) Render(ctx context.Context, concurrency int64) error {
-	sem := semaphore.NewWeighted(concurrency)
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		// Attempt to render the underlying instance. This handles the case
-		// where the resource is an asset like an image or video or audio file.
-		return r.renderInstance(ctx)
-	})
-	eg.Go(func() error {
-		// Render every child of this resource.
-		for _, child := range r.renderAsChild {
-			if err := sem.Acquire(egCtx, 1); err != nil {
-				return err
+		for _, child := range children {
+			childAsResource, newErr := resource.New(child.Manifest, child.TemplateOverride, true)
+			if newErr != nil {
+				return nil, newErr
 			}
-			child := child
-			eg.Go(func() error {
-				defer sem.Release(1)
-				return child.Render(egCtx, concurrency)
-			})
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		// Attempt to render the underlying instance of every embedded resource.
-		// This handles the case where the resource is an asset like an image or
-		// video or audio file.
-		for _, embed := range r.embeds {
-			if err := sem.Acquire(egCtx, 1); err != nil {
-				return err
-			}
-			embed := embed
-			eg.Go(func() error {
-				defer sem.Release(1)
-				return embed.renderInstance(ctx)
-			})
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		// Attempt to render a textual representation of this resource. This handles
-		// the case where the resource is a piece of content.
-		return r.renderContent()
-	})
-	return eg.Wait()
-}
-
-func (r *Resource) renderInstance(ctx context.Context) error {
-	instance, ok := r.instance.(asRenderable)
-	if !ok {
-		return nil
-	}
-	dest := r.dest
-	baseHref := r.Root.manifest.BaseHref()
-	if baseHref != "" {
-		var err error
-		if dest, err = dest.Chroot(baseHref); err != nil {
-			return err
+			resource.children = append(resource.children, childAsResource)
 		}
 	}
-	return instance.Render(ctx, r.source, dest)
+	// Populate all imports.
+	staticImports, resolveErr := self.ResolveStaticImports(r.index)
+	if resolveErr != nil {
+		return nil, resolveErr
+	}
+	var newImportedErr error
+	if resource.imports, newImportedErr = newImported(resource, staticImports); newImportedErr != nil {
+		return nil, newImportedErr
+	}
+	// Save resource to cache.
+	r.resourceCache.Set(cID, resource)
+	return resource, nil
 }
 
-func (r *Resource) renderContent() error {
-	if _, ok := r.instance.(asContent); !ok {
-		return nil
+func (r *Resource) Parents() []*Resource {
+	var parents []*Resource
+	node := r.Parent
+	for node != nil {
+		parents = append(parents, node)
+		node = node.Parent
 	}
-	filePath, hrefErr := r.Href()
-	if hrefErr != nil {
-		return hrefErr
-	}
-	fmt.Fprintf(os.Stdout, "rendering %s\n", filePath)
-	if stat, _ := r.dest.Stat(filePath); stat != nil && stat.Size() != 0 {
-		return nil
-	}
-	content, bodyErr := r.Body()
-	if bodyErr != nil {
-		return bodyErr
-	}
-	file, createErr := r.dest.Create(filePath)
-	if createErr != nil {
-		return createErr
-	}
-	if _, writeErr := file.Write([]byte(content)); writeErr != nil {
-		return writeErr
-	}
-	return file.Close()
+	return parents
 }
 
-// Spec provides a shorthand for renderTemplates to consume the spec of an underlying
-// instance with `{{ .Spec... }}` as opposed to {{ .instance.Spec... }}`.
-func (r *Resource) Spec() interface{} {
-	return reflect.ValueOf(r.instance).Elem().FieldByName("Spec").Interface()
-}
-
-func (r *Resource) BaseHref(parents ...*Resource) string {
-	hrefs := []string{r.manifest.BaseHref()}
-	var parent *Resource
-	if len(parents) == 0 && r.Root != r {
-		parent = r.Root
-	} else {
-		parent = parents[0]
-	}
-	for parent != nil && parent.manifest != nil {
-		if segment := parent.manifest.BaseHref(); segment != "" {
-			hrefs = append([]string{segment}, hrefs...)
+func (r *Resource) Titles() []string {
+	var parts []string
+	for _, node := range r.Parents() {
+		if node.Meta.TitleBase != "" {
+			parts = append(parts,node.Meta.TitleBase)
 		}
-		parent = parent.Parent
 	}
-	return path.Join(hrefs...)
+	return append([]string{r.Title()}, parts...)
+}
+
+// HrefBase computes the base href from all parents.
+func (r *Resource) HrefBase() string {
+	var parts []string
+	parents := r.Parents()
+	for i := len(parents)-1; i >= 0; i-- {
+		parts = append(parts, parents[i].Meta.HrefBase)
+	}
+	return path.Join(parts...)
 }
 
 // Href computes a link to the resource allowing the parent resource scope it.
-func (r *Resource) Href() (string, error) {
-	target := r
-	if linkable, ok := target.instance.(asLinkable); ok {
-		return path.Join(r.BaseHref(r.Parent), linkable.Href()), nil
-	} else {
-		return "", fmt.Errorf("%s does not define a href", r)
-	}
+func (r *Resource) Href() string {
+	return path.Join(r.HrefBase(), r.Manifest.Href())
 }
 
-// HrefCanonical computes that canonical reference to a resource ignoring all
+// HrefBaseCanonical combines the href base from root and current resources
+// only.
+func (r *Resource) HrefBaseCanonical() string {
+	return path.Join(r.Root.Meta.HrefBase, r.Meta.HrefBase)
+}
+
+// HrefCanonical computes the canonical reference to a resource ignoring all
 // resources that have wrapped/scoped it except the root.
-func (r *Resource) HrefCanonical() (string, error) {
-	target := r
-	if linkable, ok := target.instance.(asLinkable); ok {
-		return path.Join(r.BaseHref(r.Root), linkable.Href()), nil
-	} else {
-		return "", fmt.Errorf("%s does not define a href", r)
-	}
+func (r *Resource) HrefCanonical() string {
+	return path.Join(r.Root.Meta.HrefBase, r.Manifest.Href())
 }
 
-// Body computes the content for a resource using all associated renderTemplates.
-func (r *Resource) Body() (string, error) {
-	root, buildErr := r.template(nil)
-	if buildErr != nil {
-		return "", buildErr
-	}
-	body, err := executeTemplate(root, r)
-	if err != nil {
-		return "", err
-	}
-	return body, nil
+func (r *Resource) Prev() (*Resource, error) {
+	return r.navigate("prev", nil)
 }
 
-func (r *Resource) Title() (string, error) {
-	var titles []string
-	parent := r
-	for parent != nil {
-		titled, ok := parent.instance.(asTitled)
-		if ok && titled.Title() != "" {
-			titles = append(titles, titled.Title())
-		}
-		parent = parent.Parent
-	}
-	if len(titles) == 0 {
-		return "", fmt.Errorf("%s has no title", r)
-	}
-	return strings.Join(titles, " | "), nil
+func (r *Resource) Next() (*Resource, error) {
+	return r.navigate("next", nil)
 }
 
-func (r *Resource) Prev() (*Resource, error) { return r.navigate("prev") }
-func (r *Resource) Next() (*Resource, error) { return r.navigate("next") }
-
-func (r *Resource) Related(target string, parentForMatches ...*Resource) ([]*Resource, error) {
-	parent := r
-	if len(parentForMatches) == 1 {
-		parent = parentForMatches[0]
-	}
-	var output []*Resource
-	// Fail if an invalid selector is used.
-	s, err := manifest.NewSelector(target)
-	if err != nil {
-		return nil, err
-	}
-	matches, findErr := r.index.FindManyWithRelation(s, r.manifest.Selector)
-	// If the search finds no relations, return an empty set, we're done.
-	if findErr != nil {
-		return output, nil
-	}
-	// If there were matches, collect by instantiating resources for each.
-	for _, match := range matches {
-		resource, err := NewFromManifest(match, parent)
-		if err != nil {
-			return nil, err
-		}
-		output = append(output, resource)
-	}
-	return output, err
+func (r *Resource) PrevInScope() (*Resource, error) {
+	return r.navigate("prev", r.Parent.Manifest)
 }
 
-func (r *Resource) navigate(dir string) (*Resource, error) {
-	var err error
+func (r *Resource) NextInScope() (*Resource, error) {
+	return r.navigate("next", r.Parent.Manifest)
+}
+
+func (r *Resource) Spec() interface{} {
+	return reflect.ValueOf(r.instance.self).Elem().FieldByName("Spec").Interface()
+}
+
+func (r *Resource) navigate(dir string, scope *manifest.Manifest) (*Resource, error) {
 	var match *manifest.Manifest
 	index := r.index
-	if r.NavigationScopedByParent {
-		if index, err = r.index.RelatedIndex(r.Parent.manifest); err != nil {
-			return nil, nil
+	if scope != nil {
+		var err error
+		if index, err = index.RelatedIndex(scope); err != nil {
+			return nil, err
 		}
 	}
 	if dir == "next" {
-		match = index.Next(r.manifest)
+		match = index.Next(r.Manifest)
 	}
 	if dir == "prev" {
-		match = index.Prev(r.manifest)
+		match = index.Prev(r.Manifest)
 	}
 	if match == nil {
 		return nil, nil
 	}
-	return NewFromManifest(match, r)
+	return r.New(match, nil, false)
 }
 
-// template recursively collects all renderTemplates needed to render content for the
-// resource.
-func (r *Resource) template(root *template.Template) (*template.Template, error) {
-	if root == nil {
-		root = template.New(r.id).Funcs(template.FuncMap{
-			"yield": func() (error, error) {
-				return nil, errors.New("no yield content available yet")
-			},
-		})
-	} else if root.Lookup(r.id) != nil {
-		// If the same template is used more than once during the rendering of
-		// a given resource, don't compute it twice.
-		return root.Lookup(r.id), nil
+func (r *Resource) Content() (template.HTML, error) {
+	yield, bodyErr := r.body(nil, nil, "")
+	if bodyErr != nil {
+		return "", fmt.Errorf("%s: %w", r, bodyErr)
 	}
-	var err error
-	// Compute output for all embeds so they can be used within the template.
-	for _, dep := range r.embeds {
-		if root, err = dep.template(root); err != nil {
+	for _, tmpl := range r.templates {
+		dynamicImportManifests, resolveErr := tmpl.ResolveDynamicImports(r.index, r.Manifest)
+		if resolveErr != nil {
+			return "", resolveErr
+		}
+		dynamicImports, err := newImported(r, dynamicImportManifests)
+		if err != nil {
+			return "", err
+		}
+		var bodyErr error
+		if yield, bodyErr = tmpl.body(r, dynamicImports, yield); bodyErr != nil {
+			return "", fmt.Errorf("%s: %w", r, bodyErr)
+		}
+	}
+	return yield, nil
+}
+
+func (r *Resource) template(fns template.FuncMap) (*template.Template, error) {
+	if r.parsedTemplate == nil {
+		var err error
+		if r.parsedTemplate, err = template.New("").Funcs(fns).Parse(r.Manifest.Body); err != nil {
 			return nil, err
 		}
 	}
-	// If the resource embeds content, assign that content as the "yield" body
-	// so renderTemplates can wrap it.
-	var yield string
-	if instance, ok := r.instance.(asContent); ok {
-		yield = instance.Body()
-	}
-	// If this resource is viewed through a template, render those renderTemplates
-	// with this resource as context.
-	for _, tmpl := range r.renderTemplates {
-		if root, err = tmpl.template(root); err != nil {
-			return nil, err
-		}
-		if yield, err = executeTemplate(root.Funcs(template.FuncMap{
-			"yield": func() template.HTML {
-				return template.HTML(yield)
-			},
-		}), r); err != nil {
-			return nil, err
-		}
-	}
-	// Save the output.
-	return root.New(r.id).Parse(yield)
+	return r.parsedTemplate, nil
 }
 
-// copyWithParent makes a copy of the current resource and gives it a different
-// parent.
-func (r *Resource) copyWithParent(id string, parent *Resource) *Resource {
-	return &Resource{
-		Root:                     r.Root,
-		Parent:                   parent,
-		NavigationScopedByParent: r.NavigationScopedByParent,
-		id:                       id,
-		manifest:                 r.manifest,
-		renderAsChild:            r.renderAsChild,
-		embeds:                   r.embeds,
-		instance:                 r.instance,
-		renderTemplates:          r.renderTemplates,
-		factory:                  r.factory,
-		source:                   r.source,
-		dest:                     r.dest,
-		index:                    r.index,
-		resourceCache:            r.resourceCache,
-		templateCache:            r.templateCache,
-	}
-}
-
-// New instantiates a resource and all of its dependencies.
-func New(target string, index *manifest.Index, factory *Factory) (*Resource, error) {
-	if err := index.ComputeRelations(); err != nil {
-		return nil, err
-	}
-	selector, selectorErr := manifest.NewSelector(target)
-	if selectorErr != nil {
-		return nil, selectorErr
-	}
-	root, getErr := index.FindOne(selector)
-	if getErr != nil {
-		return nil, getErr
-	}
-	return (&Resource{
-		factory:       factory,
-		index:         index,
-		resourceCache: cmap.New(),
-		templateCache: cmap.New(),
-	}).New(root.Selector.ID(), root.Selector, nil)
-}
-
-func NewFromManifest(source *manifest.Manifest, parent *Resource) (*Resource, error) {
-	if source == nil {
-		return nil, nil
-	}
-	resource, err := parent.New(source.Selector.ID(), source.Selector, source.Meta.RenderTemplates)
-	if err != nil {
-		return nil, err
-	}
-	resource.Parent = parent
-	return resource, nil
-}
-
-func executeTemplate(root *template.Template, context *Resource) (string, error) {
-	var cacheID string
-	if context.Parent != nil {
-		cacheID = context.Parent.id + context.id + root.Name()
-		if cached, ok := context.templateCache.Get(cacheID); ok {
-			return cached.(string), nil
-		}
-	}
+func (r *Resource) body(context interface{}, relatedImports []*AsImported, yield template.HTML) (template.HTML, error) {
 	var buf bytes.Buffer
-	temp, err := root.Clone()
-	if err != nil {
-		return "", err
+	if context == nil {
+		context = r
 	}
-	if err := temp.Execute(&buf, context); err != nil {
-		return "", err
+	fns := map[string]interface{}{}
+	for _, ai := range append(r.imports, relatedImports...) {
+		fns[ai.Name] = ai.toTemplateFunc()
 	}
-	result := buf.String()
-	if cacheID != "" {
-		context.templateCache.Set(cacheID, result)
+	fns["yield"] = func() template.HTML { return yield }
+	tmpl, tmplErr := r.template(fns)
+	if tmplErr != nil {
+		return "", tmplErr
 	}
-	return result, nil
+	if err := tmpl.Funcs(fns).Execute(&buf, context); err != nil {
+		return "", fmt.Errorf("%s: %w", r, err)
+	}
+	return template.HTML(buf.String()), nil
 }
 
-// cacheID returns a unique identifier for a given manifest and associated
-// selectors pointing to other manifests used to render it. This allows the
-// expensive process of recursively instantiating resources to be sidestepped.
-func cacheID(m *manifest.Manifest, renderTemplates []*manifest.Selector) string {
-	var buffer bytes.Buffer
-	buffer.WriteString(m.Selector.ID())
-	if renderTemplates == nil || len(renderTemplates) == 0 {
-		renderTemplates = m.Meta.RenderTemplates
-	}
-	for _, t := range renderTemplates {
-		buffer.WriteString(t.ID())
-	}
-	for _, child := range m.Meta.RenderAsChild {
-		buffer.WriteString(child.ID())
-	}
-	for _, embed := range m.Meta.Embed {
-		buffer.WriteString(embed.ID())
-	}
-	return buffer.String()
+// AsImported holds a reference to an imported resource.
+type AsImported struct {
+	Name       string
+	Single     bool
+	IsTemplate bool
+	Instance   instance
+	Resources  []*Resource
 }
 
-// asRenderable represents a resource instance that can be rendered.
-type asRenderable interface {
-	Render(context.Context, billy.Filesystem, billy.Filesystem) error
+func newImported(parent *Resource, imported []*manifest.AsImported) ([]*AsImported, error) {
+	var imports []*AsImported
+	for _, imported := range imported {
+		var importedResources []*Resource
+		for _, item := range imported.Manifests {
+			importedResource, newErr := parent.New(item, nil, false)
+			if newErr != nil {
+				return nil, newErr
+			}
+			importedResources = append(importedResources, importedResource)
+		}
+		imports = append(imports, &AsImported{
+			Name:       imported.Name,
+			Single:     imported.Single,
+			IsTemplate: imported.IsTemplate,
+			Resources:  importedResources,
+		})
+	}
+	return imports, nil
 }
 
-// asContent represents a resource instance that has content.
-type asContent interface{ Body() string }
-
-// asLinkable represents a resource instance that can be linked to.
-type asLinkable interface{ Href() string }
-
-// asTitled represents a resource instance that has a title fragment.
-type asTitled interface{ Title() string }
+func (ai *AsImported) toTemplateFunc() interface{} {
+	if !ai.Single {
+		return func() (interface{}, error) {
+			return ai.Resources, nil
+		}
+	}
+	if ai.IsTemplate {
+		return func(context interface{}) (template.HTML, error) {
+			if len(ai.Resources) == 0 {
+				return "", fmt.Errorf("%s not found", ai.Name)
+			}
+			return ai.Resources[0].body(context, nil, "")
+		}
+	}
+	return func() (interface{}, error) {
+		if len(ai.Resources) == 0 {
+			return "", fmt.Errorf("%s not found", ai.Name)
+		}
+		return ai.Resources[0], nil
+	}
+}

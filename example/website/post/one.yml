@@ -1,25 +1,26 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: post
 name: one
 meta:
   live: true
+  title: Post Number One
+  href: /%Y/%m/one.html
   publishAt:
-    year: 2020
+    year: 2019
     month: 7
     day: 1
-  relations:
-  - selector: website/content/v1/author/tyler
-  - selector: website/content/v1/era/early-days
-  - selector: website/content/v1/topic/odd
-  - selector: website/content/v1/topic/prime
-  renderTemplates:
-  - html/template/v1/post/layout
-  - html/template/v1/default/layout
-spec:
-  href: /2020/07/one.html
-  title: Post Number One
-  body: |-
-    <p>Post numero uno.</p>
-
+relations:
+- selector: website/page/v1/author/tyler
+- selector: website/page/v1/era/early-days
+- selector: website/page/v1/topic/odd
+- selector: website/page/v1/topic/prime
+render:
+  imports:
+  - name: piggies
+    selector: asset/jpeg/v1/image/piggies
+  - name: img
+    selector: html/template/v1/default/responsive-image
+body: |-
+  <p>Post numero uno.</p>

@@ -5,11 +5,10 @@ namespace: default
 name: responsive-image
 meta:
   live: true
-spec:
-  body: |-
-    <a href="{{.HrefCanonical}}">
-      <img src="{{.BaseHref}}/{{index .Spec.Widths 0}}"
-        srcset="{{range $index, $width := .Spec.Widths}}{{if $index}} , {{end}}{{$.BaseHref}}/{{$width}} {{$width}}w{{end}}"
-        alt="{{.Spec.Title}}"
-        title="{{.Spec.Title}}" />
-    </a>
+body: |-
+  <a href="{{.HrefCanonical}}">
+    <img src="{{.HrefBaseCanonical}}/{{index .Spec.Widths 0}}"
+      srcset="{{range $index, $width := .Spec.Widths}}{{if $index}} , {{end}}{{$.HrefBaseCanonical}}/{{$width}} {{$width}}w{{end}}"
+      alt="{{.Title}}"
+      title="{{.Title}}" />
+  </a>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-git/go-billy/v5"
+	json "github.com/json-iterator/go"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"golang.org/x/sync/errgroup"
 	"io"
@@ -13,19 +14,22 @@ import (
 )
 
 type imageSpec struct {
-	Title       string
-	Description string
-	Body        string
-	Widths      []int
-	Href        string
-	Domain      string
+	Widths []int
+}
+
+func newImageSpec(m *manifest.Manifest) (*imageSpec, error) {
+	var instance imageSpec
+	if err := json.Unmarshal(m.Spec, &instance); err != nil {
+		return nil, err
+	}
+	if err := instance.validate(); err != nil {
+		return nil, err
+	}
+	return &instance, nil
 }
 
 func (s *imageSpec) validate() error {
 	var errs []string
-	if s.Title == "" {
-		errs = append(errs, "title must be defined")
-	}
 	if len(s.Widths) == 0 {
 		errs = append(errs, "widths must be defined as an array")
 	}

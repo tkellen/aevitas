@@ -1,26 +1,22 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: author
 name: tyler
 meta:
   live: true
-  baseHref: /author/tyler
-  renderTemplates:
-  - html/template/v1/author/layout
-  - html/template/v1/default/layout
-  renderAsChild:
-  - selector: website/content/v1/post/*
+  titleBase: Tyler Kellen
+  description: Entries authored by Tyler Kellen.
+  hrefBase: /author/tyler
+render:
+  children:
+  - selector: website/page/v1/post/*
     matchIfRelatedTo:
-    - website/content/v1/author/tyler
-    navigationScopedByParent: true
-    renderTemplates:
+    - website/page/v1/author/tyler
+    templates:
     - html/template/v1/post/layout
-    - html/template/v1/post/scoped
+    - html/template/v1/default/content
+    - html/template/v1/nav/scoped
     - html/template/v1/default/layout
-spec:
-  title: Tyler Kellen
-  titleFragment: Authored by Tyler Kellen
-  description: A person.
-  extra:
-    email: tyler@test.com
+body: |-
+  {{ .Meta.Description }}

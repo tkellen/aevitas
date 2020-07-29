@@ -1,0 +1,11 @@
+kind: html
+group: template
+version: v1
+namespace: collection
+name: list
+meta:
+  live: true
+body: |-
+  {{ range $resource := . }}
+    <li><a href="{{ $resource.HrefCanonical }}">{{ $resource.Title }}</a></li>
+  {{ end }}

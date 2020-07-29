@@ -2,7 +2,7 @@ package manifest_test
 
 import (
 	"bytes"
-	"github.com/google/go-cmp/cmp"
+	"github.com/tkellen/aevitas/internal/selector"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"reflect"
 	"testing"
@@ -10,36 +10,48 @@ import (
 
 func TestNew(t *testing.T) {
 	type testCase struct {
-		input            []byte
-		expectedSelector *manifest.Selector
-		expectedMeta     *manifest.Meta
-		expectedErr      bool
+		input             []byte
+		expectedSelector  *selector.Selector
+		expectedMeta      *manifest.Meta
+		expectedRelations []*manifest.Relation
+		expectedRender    *manifest.Render
+		expectedErr       bool
 	}
-	expectedSelector := &manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"}
+	expectedSelector := selector.Must("k/g/v/ns/n")
 	expectedMeta := &manifest.Meta{
-		File: "test",
-		Relations: []*manifest.Relation{{
-			Selector: &manifest.Selector{Kind: "a", Group: "b", Version: "c", Namespace: "d", Name: "e"},
-		}},
-		RenderAsChild: []*manifest.Child{{
+		File:      "test",
+		HrefBase:  "/",
+		Href:      "test.html",
+		TitleBase: "base",
+		Title:     "title",
+	}
+	expectedRelations := []*manifest.Relation{{
+		Selector: selector.Must("a/b/c/d/e"),
+	}}
+	expectedRender := &manifest.Render{
+		Children: []*manifest.Child{{
 			Relation: manifest.Relation{
-				Selector: &manifest.Selector{Kind: "e", Group: "d", Version: "c", Namespace: "b", Name: "a"},
+				Selector: selector.Must("e/d/c/b/a"),
 			},
-			RenderTemplates: []*manifest.Selector{{Kind: "f", Group: "g", Version: "h", Namespace: "i", Name: "j"}},
+			Templates: []*selector.Selector{selector.Must("f/g/h/i/j")},
 		}},
 	}
 	table := map[string]testCase{
 		"from json": {
-			input:            []byte(`{"kind":"k","group":"g","version":"v","namespace":"ns","name":"n","meta":{"file":"test","relations":[{"selector":"a/b/c/d/e"}],"renderAsChild":[{"selector":"e/d/c/b/a","renderTemplates":["f/g/h/i/j"]}]}}`),
-			expectedSelector: expectedSelector,
-			expectedMeta:     expectedMeta,
-			expectedErr:      false,
+			input:             []byte(`{"kind":"k","group":"g","version":"v","namespace":"ns","name":"n","meta":{"file":"test","hrefBase":"/","href":"test.html","titleBase":"base","title":"title"},"relations":[{"selector":"a/b/c/d/e"}],"render":{"children":[{"selector":"e/d/c/b/a","templates":["f/g/h/i/j"]}]}}`),
+			expectedSelector:  expectedSelector,
+			expectedMeta:      expectedMeta,
+			expectedRelations: expectedRelations,
+			expectedRender:    expectedRender,
+			expectedErr:       false,
 		},
 		"with yaml as frontmatter": {
-			input:            []byte("---\nkind: k\ngroup: g\nversion: v\nnamespace: ns\nname: \"n\"\nmeta:\n  file: test\n  relations:\n  - selector: a/b/c/d/e\n  renderAsChild:\n    - selector: e/d/c/b/a\n      renderTemplates: [f/g/h/i/j]\n\n---\ncontent"),
-			expectedSelector: expectedSelector,
-			expectedMeta:     expectedMeta,
-			expectedErr:      false,
+			input:             []byte("---\nkind: k\ngroup: g\nversion: v\nnamespace: ns\nname: \"n\"\nmeta:\n  file: test\n  hrefBase: /\n  href: test.html\n  titleBase: base\n  title: title\nrelations:\n  - selector: a/b/c/d/e\nrender:\n  children:\n  - selector: e/d/c/b/a\n    templates: [f/g/h/i/j]\n\n---\ncontent"),
+			expectedSelector:  expectedSelector,
+			expectedMeta:      expectedMeta,
+			expectedRelations: expectedRelations,
+			expectedRender:    expectedRender,
+			expectedErr:       false,
 		},
 		"with invalid yaml as frontmatter": {
 			input:       []byte("---\n}::: BAD :::{\n---\ncontent"),
@@ -67,45 +79,28 @@ func TestNew(t *testing.T) {
 				if !bytes.Equal(test.input, actual.Raw) {
 					t.Fatalf("expected %s %s, got %s", name, test.input, actual.Raw)
 				}
-				if diff := cmp.Diff(test.expectedMeta, actual.Meta); diff != "" {
-					t.Fatal(diff)
+				if !reflect.DeepEqual(test.expectedMeta, actual.Meta) {
+					t.Fatalf("expected %#v, got %#v", test.expectedMeta, actual.Meta)
+				}
+				if !reflect.DeepEqual(test.expectedRelations, actual.Relations) {
+					t.Fatalf("expected %#v, got %#v", test.expectedRelations, actual.Relations)
+				}
+				if !reflect.DeepEqual(test.expectedRender, actual.Render) {
+					t.Fatalf("expected %#v, got %#v", test.expectedRender, actual.Render)
 				}
 			}
 		})
 	}
 }
 
-func TestNewFromDirectory(t *testing.T) {
-	list, err := manifest.NewFromDirectory("../../example/templates")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(list) != 12 {
-		t.Fatalf("expected 12 items got %d, this test is junk.", len(list))
-	}
-}
-
-func TestNewFromReader(t *testing.T) {
-	list, err := manifest.NewFromReader(bytes.NewReader([]byte(`
-      {"kind":"k","group":"g","version":"v","namespace":"ns","name":"first"}
-	  {"kind":"k","group":"g","version":"v","namespace":"ns","name":"second"}
-    `)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(list) != 2 {
-		t.Fatal("expected 2 items, this test is junk")
-	}
-}
-
 func TestManifest_EqualGreaterLess(t *testing.T) {
-	first := &manifest.Manifest{Meta: &manifest.Meta{PublishAt: manifest.PublishAt{
+	first := &manifest.Manifest{Meta: &manifest.Meta{PublishAt: &manifest.PublishAt{
 		Year: 2020, Month: 1, Day: 1,
 	}}}
-	sameAsFirst := &manifest.Manifest{Meta: &manifest.Meta{PublishAt: manifest.PublishAt{
+	sameAsFirst := &manifest.Manifest{Meta: &manifest.Meta{PublishAt: &manifest.PublishAt{
 		Year: 2020, Month: 1, Day: 1,
 	}}}
-	last := &manifest.Manifest{Meta: &manifest.Meta{PublishAt: manifest.PublishAt{
+	last := &manifest.Manifest{Meta: &manifest.Meta{PublishAt: &manifest.PublishAt{
 		Year: 2020, Month: 1, Day: 3,
 	}}}
 	if !first.Equal(sameAsFirst) {
@@ -114,16 +109,78 @@ func TestManifest_EqualGreaterLess(t *testing.T) {
 	if first.Equal(last) {
 		t.Fatal("expected first and last would not be equal")
 	}
-	if first.Less(last) {
+	if !first.Less(last) {
 		t.Fatal("expected first to be less than last")
 	}
-	if !last.Less(first) {
+	if last.Less(first) {
 		t.Fatal("did not expect last to be less then first")
 	}
-	if last.Greater(first) {
+	if !last.Greater(first) {
 		t.Fatal("expected last to be greater than first")
 	}
-	if !first.Greater(last) {
+	if first.Greater(last) {
 		t.Fatal("did not expect first to be greater than last")
+	}
+}
+
+func TestManifest_Title(t *testing.T) {
+	table := map[string]struct {
+		resource *manifest.Manifest
+		expected string
+	}{
+		"both empty": {
+			resource: &manifest.Manifest{
+				Meta: &manifest.Meta{
+					TitleBase: "",
+					Title:     "",
+				},
+			},
+			expected: "",
+		},
+		"base has value, title empty": {
+			resource: &manifest.Manifest{
+				Meta: &manifest.Meta{
+					TitleBase: "base",
+					Title:     "",
+				},
+			},
+			expected: "base",
+		},
+		"base empty, title has value": {
+			resource: &manifest.Manifest{
+				Meta: &manifest.Meta{
+					TitleBase: "",
+					Title:     "title",
+				},
+			},
+			expected: "title",
+		},
+		"base has value, title has value": {
+			resource: &manifest.Manifest{
+				Meta: &manifest.Meta{
+					TitleBase: "base",
+					Title:     "title",
+				},
+			},
+			expected: "title base",
+		},
+		"base and title have same value": {
+			resource: &manifest.Manifest{
+				Meta: &manifest.Meta{
+					TitleBase: "equal",
+					Title:     "equal",
+				},
+			},
+			expected: "equal",
+		},
+	}
+	for name, test := range table {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			actual := test.resource.Title()
+			if test.expected != actual {
+				t.Fatalf("expected %s got %s", test.expected, actual)
+			}
+		})
 	}
 }

@@ -1,0 +1,26 @@
+kind: website
+group: page
+version: v1
+namespace: collection
+name: topics
+meta:
+  live: true
+  title: Topics
+  description: All topics written about.
+  href: /topic/index.html
+render:
+  children:
+  - selector: website/page/v1/topic/*
+    templates:
+    - html/template/v1/collection/layout
+    - html/template/v1/default/content
+    - html/template/v1/default/layout
+  imports:
+  - name: collectionList
+    selector: html/template/v1/collection/list
+  - name: items
+    selector: website/page/v1/topic/*
+body: |-
+  {{ if items }}
+    <ul>{{ collectionList items }}</ul>
+  {{ end }}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/disintegration/gift"
 	"github.com/go-git/go-billy/v5"
-	json "github.com/json-iterator/go"
 	"github.com/pixiv/go-libjpeg/jpeg"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"image"
@@ -19,33 +18,18 @@ type Jpeg struct {
 }
 
 func NewJpeg(m *manifest.Manifest) (*Jpeg, error) {
-	instance := &Jpeg{
+	spec, err := newImageSpec(m)
+	if err != nil {
+		return nil, err
+	}
+	return &Jpeg{
 		Manifest: m,
-		Spec:     &imageSpec{},
-	}
-	if err := json.Unmarshal(m.Spec, instance.Spec); err != nil {
-		return nil, err
-	}
-	if instance.Spec.Description == "" {
-		instance.Spec.Description = instance.Spec.Title
-	}
-	if instance.Spec.Body == "" {
-		instance.Spec.Body = instance.Spec.Description
-	}
-	if instance.Spec.Href == "" {
-		instance.Spec.Href = "index.html"
-	}
-	if err := instance.Validate(); err != nil {
-		return nil, err
-	}
-	return instance, nil
+		Spec:     spec,
+	}, nil
 }
 
-func (img *Jpeg) Validate() error { return img.Spec.validate() }
-func (img *Jpeg) Href() string    { return img.Spec.Href }
-func (img *Jpeg) Body() string    { return img.Spec.Body }
 func (img *Jpeg) Render(ctx context.Context, source billy.Filesystem, dest billy.Filesystem) error {
-	scopedDest, scopeErr := dest.Chroot(img.Manifest.Meta.BaseHref)
+	scopedDest, scopeErr := dest.Chroot(img.Manifest.Meta.HrefBase)
 	if scopeErr != nil {
 		return scopeErr
 	}
@@ -63,7 +47,6 @@ func (img *Jpeg) Render(ctx context.Context, source billy.Filesystem, dest billy
 	return img.Spec.render(ctx, func(width int) error {
 		return img.write(data, scopedDest, width)
 	})
-
 }
 
 func (img *Jpeg) write(src image.Image, fs billy.Filesystem, width int) error {

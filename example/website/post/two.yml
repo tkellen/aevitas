@@ -1,24 +1,20 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: post
 name: two
 meta:
   live: true
+  title: Post Number Two
+  href: /%Y/%m/two.html
   publishAt:
-    year: 2020
+    year: 2019
     month: 7
     day: 2
-  relations:
-  - selector: website/content/v1/author/tyler
-  - selector: website/content/v1/era/early-days
-  - selector: website/content/v1/topic/even
-  renderTemplates:
-  - html/template/v1/post/layout
-  - html/template/v1/default/layout
-spec:
-  href: /2020/07/two.html
-  title: Post Number Two
-  body: |-
-    <p>Post numero dos.</p>
+relations:
+- selector: website/page/v1/author/tyler
+- selector: website/page/v1/era/early-days
+- selector: website/page/v1/topic/even
+body: |-
+  <p>Post numero dos.</p>
 

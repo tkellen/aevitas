@@ -1,26 +1,24 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: topic
 name: prime
 meta:
   live: true
-  baseHref: /topic/prime
-  relations:
-  - selector: website/content/v1/section/numeric
-  renderTemplates:
-  - html/template/v1/related/layout
-  - html/template/v1/default/layout
-  renderAsChild:
-  - selector: website/content/v1/post/*
+  titleBase: Prime Numbers
+  description: Entries categorized under the topic of "Prime Numbers".
+  hrefBase: /topic/prime
+relations:
+- selector: website/page/v1/section/numeric
+render:
+  children:
+  - selector: website/page/v1/post/*
     matchIfRelatedTo:
-    - website/content/v1/topic/prime
-    navigationScopedByParent: true
-    renderTemplates:
+    - website/page/v1/topic/prime
+    templates:
     - html/template/v1/post/layout
-    - html/template/v1/post/scoped
+    - html/template/v1/default/content
+    - html/template/v1/nav/scoped
     - html/template/v1/default/layout
-spec:
-  title: Prime Numbers
-  titleFragment: Posts Titled With Prime Numbers
-  description: Entries filed under the topic of "Prime Numbers".
+body: |-
+  {{ .Meta.Description }}

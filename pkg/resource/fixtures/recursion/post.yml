@@ -1,0 +1,17 @@
+kind: website
+group: page
+version: v1
+namespace: post
+name: one
+meta:
+  live: true
+  title: Post Number One
+  href: /%Y/%m/one.html
+  publishAt:
+    year: 2019
+    month: 7
+    day: 1
+relations:
+- selector: website/page/v1/author/tyler
+body: |-
+  <p>Post numero uno.</p>

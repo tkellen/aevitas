@@ -1,0 +1,26 @@
+kind: html
+group: template
+version: v1
+namespace: default
+name: content
+meta:
+  live: true
+render:
+  imports:
+  - name: collectionList
+    selector: html/template/v1/collection/list
+  importsDynamic:
+  - name: authors
+    selector: website/page/v1/author/*
+    matchIfRelatedToContext: true
+body: |-
+  <div class="main">
+    <div class="content">
+      <h1 class="title"><a href="{{ .HrefCanonical }}">{{ .Title }}</a></h1>
+      {{/* Don't show authors on author listing page */}}
+      {{ if (and authors (ne .Selector.ID "website/page/v1/collection/authors")) }}
+        <ul class="byline">{{ collectionList authors }}</ul>
+      {{ end }}
+      {{ yield }}
+    </div>
+  </div>

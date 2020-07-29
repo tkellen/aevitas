@@ -1,24 +1,20 @@
 kind: website
-group: content
+group: page
 version: v1
 namespace: post
 name: three-hundred-sixty-five
 meta:
   live: true
+  title: Post Number Three Hundred and Sixty Five - One Year Anniversary
+  href: /%Y/%m/three-hundred-sixty-five.html
   publishAt:
-    year: 2021
+    year: 2020
     month: 7
     day: 1
-  relations:
-  - selector: website/content/v1/author/tyler
-  - selector: website/content/v1/era/later-years
-  - selector: website/content/v1/topic/even
-  renderTemplates:
-  - html/template/v1/post/layout
-  - html/template/v1/default/layout
-spec:
-  href: /2020/07/three-hundred-sixty-five.html
-  title: Post Number Three Hundred and Sixty Five - One Year Anniversary
-  body: |-
-    <p>Post numero trescientos sesenta y cinco.</p>
+relations:
+- selector: website/page/v1/author/tyler
+- selector: website/page/v1/era/later-years
+- selector: website/page/v1/topic/even
+body: |-
+  <p>Post numero trescientos sesenta y cinco.</p>
 

@@ -1,9 +1,23 @@
 package manifest_test
 
-import (
-	"github.com/tkellen/aevitas/pkg/manifest"
-	"testing"
-)
+/*
+func TestGenerator_Generate(t *testing.T) {
+	generator := &manifest.Generator{
+		Name: "test",
+		Loops: []manifest.GeneratorRange{
+			{Name: "years", Range: [2]int{2008, 2020}},
+			{Name: "months", Range: [2]int{1, 12}},
+			{Name: "days", Range: [2]int{1, 31}},
+		},
+	}
+	manifests, err := generator.Generate(&manifest.Manifest{
+		Selector: selector.Must("kind/group/version/ns/name"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Fprintf(os.Stdout, "%s", manifests)
+}
 
 func TestNewFromGenerator(t *testing.T) {
 	generator := &manifest.Generator{
@@ -13,28 +27,28 @@ func TestNewFromGenerator(t *testing.T) {
 			"monthRollover": []int{31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366},
 		},
 		Template: `{{- $month := 1 -}}
-{{- $day := (add count 1) -}}
+{{- $day := (add idx 1) -}}
 {{- range $idx, $max := .monthRollover -}}
-  {{- if ge count ($max | int) -}}
+  {{- if ge idx ($max | int) -}}
     {{- $month = (add $idx 2) -}}
-    {{- $day = (add (sub count $max) 1) -}}
+    {{- $day = (add (sub idx $max) 1) -}}
   {{- end -}}
 {{- end -}}
 {
   "kind": "website",
-  "group": "content",
+  "group": "page",
   "version": "v1",
   "namespace": "day",
   "name": "{{ $month }}-{{ $day }}",
   "meta": {
     "live": true,
-    "baseHref": "/{{ printf "%02d" $month }}/{{ printf "%02d" $day }}",
-    "renderTemplates": [
-      "html/template/v1/related/layout",
+    "hrefBase": "/{{ printf "%02d" $month }}/{{ printf "%02d" $day }}",
+    "templates": [
+      "html/template/v1/post/related-layout",
       "html/template/v1/default/layout"
     ],
     "relations": [{
-      "selector": "website/content/v1/post/*",
+      "selector": "website/page/v1/post/*",
       "navigationScopedByParent": true,
       "matchExpression": [
         { "key": "meta.publishAt.month", "operator": "In", "values": [{{ $month }}] },
@@ -42,12 +56,12 @@ func TestNewFromGenerator(t *testing.T) {
       ]
     }],
     "renderAsChild": [{
-      "selector": "website/content/v1/post/*",
+      "selector": "website/page/v1/post/*",
       "matchIfRelatedTo": [
-        "website/content/v1/day/{{ $month }}-{{ $day }}"
+        "website/page/v1/day/{{ $month }}-{{ $day }}"
       ],
       "navigationScopedByParent": true,
-      "renderTemplates": [
+      "templates": [
         "html/template/v1/post/layout",
         "html/template/v1/post/scoped",
         "html/template/v1/default/layout"
@@ -73,3 +87,4 @@ func TestNewFromGenerator(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+*/

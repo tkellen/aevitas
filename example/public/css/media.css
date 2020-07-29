@@ -1,0 +1,6 @@
+img {
+    padding: 0.5em;
+    background-color: #111;
+    background-color: rgba(0,0,0,.5);
+    box-shadow: 0 0 1px rgba(0,0,0,.5);
+}

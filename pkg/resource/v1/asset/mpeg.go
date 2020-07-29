@@ -2,7 +2,6 @@ package asset
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-git/go-billy/v5"
 	json "github.com/json-iterator/go"
 	"github.com/tkellen/aevitas/pkg/manifest"
@@ -13,14 +12,11 @@ const KGVMpeg = "asset/mpeg/v1"
 
 type Mpeg struct {
 	*manifest.Manifest
-	Source billy.Filesystem
-	Dest   billy.Filesystem
-	Spec   *MpegSpec
+	Spec *MpegSpec
 }
 
 type MpegSpec struct {
-	Title string
-	Path  string
+	Path string
 }
 
 func NewMpeg(m *manifest.Manifest) (*Mpeg, error) {
@@ -35,13 +31,6 @@ func NewMpeg(m *manifest.Manifest) (*Mpeg, error) {
 		return nil, err
 	}
 	return instance, nil
-}
-
-func (m *Mpeg) Validate() error {
-	if m.Spec.Title == "" {
-		return fmt.Errorf("title must be defined")
-	}
-	return nil
 }
 
 func (m *Mpeg) Render(ctx context.Context, source billy.Filesystem, dest billy.Filesystem) error {

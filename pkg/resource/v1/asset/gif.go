@@ -3,7 +3,6 @@ package asset
 import (
 	"context"
 	"github.com/go-git/go-billy/v5"
-	json "github.com/json-iterator/go"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"strconv"
 )
@@ -16,33 +15,18 @@ type Gif struct {
 }
 
 func NewGif(m *manifest.Manifest) (*Gif, error) {
-	instance := &Gif{
+	spec, err := newImageSpec(m)
+	if err != nil {
+		return nil, err
+	}
+	return &Gif{
 		Manifest: m,
-		Spec:     &imageSpec{},
-	}
-	if err := json.Unmarshal(m.Spec, instance.Spec); err != nil {
-		return nil, err
-	}
-	if instance.Spec.Description == "" {
-		instance.Spec.Description = instance.Spec.Title
-	}
-	if instance.Spec.Body == "" {
-		instance.Spec.Body = instance.Spec.Description
-	}
-	if instance.Spec.Href == "" {
-		instance.Spec.Href = "index.html"
-	}
-	if err := instance.Validate(); err != nil {
-		return nil, err
-	}
-	return instance, nil
+		Spec:     spec,
+	}, nil
 }
 
-func (img *Gif) Validate() error { return img.Spec.validate() }
-func (img *Gif) Href() string    { return img.Spec.Href }
-func (img *Gif) Body() string    { return img.Spec.Body }
 func (img *Gif) Render(ctx context.Context, source billy.Filesystem, dest billy.Filesystem) error {
-	scopedDest, scopeErr := dest.Chroot(img.Manifest.Meta.BaseHref)
+	scopedDest, scopeErr := dest.Chroot(img.Manifest.Meta.HrefBase)
 	if scopeErr != nil {
 		return scopeErr
 	}

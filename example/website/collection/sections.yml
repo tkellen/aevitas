@@ -1,0 +1,26 @@
+kind: website
+group: page
+version: v1
+namespace: collection
+name: sections
+meta:
+  live: true
+  title: Sections
+  description: All sections to sub-categorize a sea of topics.
+  href: /section/index.html
+render:
+  children:
+  - selector: website/page/v1/section/*
+    templates:
+    - html/template/v1/collection/layout
+    - html/template/v1/default/content
+    - html/template/v1/default/layout
+  imports:
+  - name: collectionList
+    selector: html/template/v1/collection/list
+  - name: items
+    selector: website/page/v1/section/*
+body: |-
+  {{ if items }}
+    <ul>{{ collectionList items }}</ul>
+  {{ end }}

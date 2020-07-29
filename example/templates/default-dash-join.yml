@@ -1,0 +1,9 @@
+kind: html
+group: template
+version: v1
+namespace: default
+name: dash-join
+meta:
+  live: true
+body: |-
+  {{ range $index, $item := . }}{{if $index}} - {{end}}{{ . }}{{end}}

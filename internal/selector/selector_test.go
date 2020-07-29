@@ -1,9 +1,9 @@
-package manifest_test
+package selector_test
 
 import (
 	"fmt"
 	json "github.com/json-iterator/go"
-	"github.com/tkellen/aevitas/pkg/manifest"
+	"github.com/tkellen/aevitas/internal/selector"
 	"testing"
 )
 
@@ -21,7 +21,7 @@ func TestNewSelector(t *testing.T) {
 	for input, expectedErr := range table {
 		input, expectedErr := input, expectedErr
 		t.Run(input, func(t *testing.T) {
-			_, err := manifest.NewSelector(input)
+			_, err := selector.New(input)
 			if err != nil && !expectedErr {
 				t.Fatalf("expected no error, saw %s", err)
 			}
@@ -34,17 +34,17 @@ func TestNewSelector(t *testing.T) {
 
 func TestSelector_ID(t *testing.T) {
 	type testCase struct {
-		selector manifest.Selector
+		selector *selector.Selector
 		expected string
 	}
 	table := []testCase{
 		{
-			selector: manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
+			selector: selector.Must("k/g/v/ns/n"),
 			expected: "k/g/v/ns/n",
 		},
 		{
-			selector: manifest.Selector{},
-			expected: "////",
+			selector: &selector.Selector{},
+			expected: "",
 		},
 	}
 	for _, test := range table {
@@ -60,17 +60,17 @@ func TestSelector_ID(t *testing.T) {
 
 func TestSelector_String(t *testing.T) {
 	type testCase struct {
-		selector manifest.Selector
+		selector *selector.Selector
 		expected string
 	}
 	table := []testCase{
 		{
-			selector: manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
+			selector: selector.Must("k/g/v/ns/n"),
 			expected: "k/g/v/ns/n",
 		},
 		{
-			selector: manifest.Selector{},
-			expected: "////",
+			selector: &selector.Selector{},
+			expected: "",
 		},
 	}
 	for _, test := range table {
@@ -86,17 +86,13 @@ func TestSelector_String(t *testing.T) {
 
 func TestSelector_KGV(t *testing.T) {
 	type testCase struct {
-		selector manifest.Selector
+		selector *selector.Selector
 		expected string
 	}
 	table := []testCase{
 		{
-			selector: manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
+			selector: selector.Must("k/g/v/ns/n"),
 			expected: "k/g/v",
-		},
-		{
-			selector: manifest.Selector{},
-			expected: "//",
 		},
 	}
 	for _, test := range table {
@@ -112,17 +108,13 @@ func TestSelector_KGV(t *testing.T) {
 
 func TestSelector_KGVN(t *testing.T) {
 	type testCase struct {
-		selector manifest.Selector
+		selector *selector.Selector
 		expected string
 	}
 	table := []testCase{
 		{
-			selector: manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
+			selector: selector.Must("k/g/v/ns/n"),
 			expected: "k/g/v/ns",
-		},
-		{
-			selector: manifest.Selector{},
-			expected: "///",
 		},
 	}
 	for _, test := range table {
@@ -138,16 +130,16 @@ func TestSelector_KGVN(t *testing.T) {
 
 func TestSelector_NameIsWildcard(t *testing.T) {
 	type testCase struct {
-		selector manifest.Selector
+		selector *selector.Selector
 		expected bool
 	}
 	table := []testCase{
 		{
-			selector: manifest.Selector{Name: "name"},
+			selector: selector.Must("k/g/v/ns/n"),
 			expected: false,
 		},
 		{
-			selector: manifest.Selector{Name: "*"},
+			selector: selector.Must("k/g/v/ns/*"),
 			expected: true,
 		},
 	}
@@ -164,34 +156,29 @@ func TestSelector_NameIsWildcard(t *testing.T) {
 
 func TestSelector_Matches(t *testing.T) {
 	type testCase struct {
-		a        manifest.Selector
-		b        manifest.Selector
+		a        *selector.Selector
+		b        *selector.Selector
 		expected bool
 	}
 	table := []testCase{
 		{
-			a:        manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
-			b:        manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
+			a:        selector.Must("k/g/v/ns/n"),
+			b:        selector.Must("k/g/v/ns/n"),
 			expected: true,
 		},
 		{
-			a:        manifest.Selector{},
-			b:        manifest.Selector{},
+			a:        &selector.Selector{},
+			b:        &selector.Selector{},
 			expected: true,
 		},
 		{
-			a:        manifest.Selector{Name: "*"},
-			b:        manifest.Selector{},
+			a:        selector.Must("k/g/v/ns/*"),
+			b:        selector.Must("k/g/v/ns/n"),
 			expected: true,
 		},
 		{
-			a:        manifest.Selector{Name: "*"},
-			b:        manifest.Selector{Name: "anything"},
-			expected: true,
-		},
-		{
-			a:        manifest.Selector{Name: "*"},
-			b:        manifest.Selector{Kind: "test", Group: "test", Version: "test", Namespace: "test", Name: "test"},
+			a:        selector.Must("k/g/v/ns/*"),
+			b:        selector.Must("k/g/v/test/n"),
 			expected: false,
 		},
 	}
@@ -213,34 +200,22 @@ func TestSelector_Matches(t *testing.T) {
 func TestSelector_UnmarshalJSON(t *testing.T) {
 	type testCase struct {
 		input    string
-		expected manifest.Selector
+		expected *selector.Selector
 	}
 	table := []testCase{
-		{
-			input: "invalid////",
-		},
-		{
-			input: "/invalid///",
-		},
-		{
-			input: "//invalid//",
-		},
-		{
-			input: "///invalid/",
-		},
-		{
-			input: "////invalid",
-		},
-		{
-			input: "/////",
-		},
+		{input: "invalid////"},
+		{input: "/invalid///"},
+		{input: "//invalid//"},
+		{input: "///invalid/"},
+		{input: "////invalid"},
+		{input: "/////"},
 		{
 			input:    "k/g/v/ns/n",
-			expected: manifest.Selector{Kind: "k", Group: "g", Version: "v", Namespace: "ns", Name: "n"},
+			expected: selector.Must("k/g/v/ns/n"),
 		},
 	}
 	type testStruct struct {
-		Selector manifest.Selector
+		Selector *selector.Selector
 	}
 	var temp testStruct
 	if err := json.Unmarshal([]byte(`{"selector"`), &temp); err == nil {
@@ -252,11 +227,13 @@ func TestSelector_UnmarshalJSON(t *testing.T) {
 		t.Run(test.input, func(t *testing.T) {
 			var result testStruct
 			err := json.Unmarshal([]byte(fmt.Sprintf(`{"selector":"%s"}`, test.input)), &result)
-			if err != nil && test.expected != (manifest.Selector{}) {
+			if err != nil && test.expected != nil {
 				t.Fatal("did not expect error")
 			}
-			if test.expected != result.Selector {
-				t.Fatalf("expected %v, got %v", test.expected, result.Selector)
+			if err == nil {
+				if *test.expected != *result.Selector {
+					t.Fatalf("expected %v, got %v", test.expected, result.Selector)
+				}
 			}
 		})
 	}

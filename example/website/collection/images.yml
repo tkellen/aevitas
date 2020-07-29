@@ -1,0 +1,18 @@
+kind: website
+group: page
+version: v1
+namespace: collection
+name: images
+meta:
+  live: true
+  title: Images
+  href: /image/index.html
+render:
+  children:
+  - selector: asset/jpeg/v1/image/*
+    templates:
+    - html/template/v1/image/layout
+    - html/template/v1/collection/layout
+    - html/template/v1/default/content
+    - html/template/v1/nav/unscoped
+    - html/template/v1/default/layout
