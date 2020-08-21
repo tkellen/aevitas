@@ -1,15 +1,8 @@
 package resource_test
 
-import (
-	"github.com/tkellen/aevitas/pkg/manifest"
-	"github.com/tkellen/aevitas/pkg/resource"
-	"reflect"
-	"testing"
-)
-
 /*
-func testIndex(t *testing.T) *resource.Tree {
-	list, err := manifest.NewFromDirs([]string{"../../example/website","../../example/templates"}, nil)
+func testIndex(t *testing.T) *resource.RenderTree {
+	list, err := manifest.NewFromDirs([]string{"../../example/website","../../example/layouts"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,18 +16,18 @@ func testIndex(t *testing.T) *resource.Tree {
 	inputRoot := osfs.New("../../example/asset")
 	outputRoot := memfs.New()
 	factory := resource.DefaultFactory(inputRoot, outputRoot)
-	tree, rsErr := resource.NewTree("website/page/v1/domain/blog", index, factory)
+	tree, rsErr := resource.NewRenderTree("website/render/v1/domain/blog", index, factory)
 	if rsErr != nil {
 		t.Fatal(err)
 	}
 	return tree
-}*/
+}
 
 func testResources() map[string]*resource.Resource {
 	post := &resource.Resource{
 		Manifest: &manifest.Manifest{
 			Meta: &manifest.Meta{
-				Href: "post.html",
+				Href:  "post.html",
 				Title: "Post",
 			},
 		},
@@ -42,10 +35,10 @@ func testResources() map[string]*resource.Resource {
 	topic := &resource.Resource{
 		Manifest: &manifest.Manifest{
 			Meta: &manifest.Meta{
-				HrefBase: "/topic/testing",
-				Href: "index.html",
-				TitleBase: "Testing",
-				Title: "Testing",
+				hrefPrefix:  "/topic/testing",
+				Href:        "index.html",
+				TitlePrefix: "Testing",
+				Title:       "Testing",
 			},
 		},
 		children: []*resource.Resource{post},
@@ -54,36 +47,37 @@ func testResources() map[string]*resource.Resource {
 	collection := &resource.Resource{
 		Manifest: &manifest.Manifest{
 			Meta: &manifest.Meta{
-				Href: "/topic/index.html",
+				Href:  "/topic/index.html",
 				Title: "Topics",
 			},
+			children: map[string][]*resource.Resource{"":[]*resource.Resource{topic}},
 		},
-		children: []*resource.Resource{topic},
+
 	}
 	topic.Parent = collection
 	domain := &resource.Resource{
 		Manifest: &manifest.Manifest{
 			Meta: &manifest.Meta{
-				HrefBase: "/",
-				Href: "index.html",
-				TitleBase: "Domain",
-				Title: "Home",
+				hrefPrefix:  "/",
+				Href:        "index.html",
+				TitlePrefix: "Domain",
+				Title:       "Home",
 			},
 		},
 		children: []*resource.Resource{collection},
 	}
 	collection.Parent = domain
 	return map[string]*resource.Resource{
-		"post": post,
-		"topic": topic,
+		"post":       post,
+		"topic":      topic,
 		"collection": collection,
-		"domain": domain,
+		"domain":     domain,
 	}
 }
 
 func TestResource_Parents(t *testing.T) {
 	r := testResources()
-	table := map[string]struct{
+	table := map[string]struct {
 		resource *resource.Resource
 		expected []*resource.Resource
 	}{
@@ -120,17 +114,17 @@ func TestResource_Parents(t *testing.T) {
 
 func TestResource_Titles(t *testing.T) {
 	r := testResources()
-	table := map[string]struct{
+	table := map[string]struct {
 		resource *resource.Resource
 		expected []string
 	}{
 		"post": {
 			resource: r["post"],
-			expected: []string{"Post","Testing","Domain"},
+			expected: []string{"Post", "Testing", "Domain"},
 		},
 		"topic": {
 			resource: r["topic"],
-			expected: []string{"Testing","Domain"},
+			expected: []string{"Testing", "Domain"},
 		},
 		"collection": {
 			resource: r["collection"],
@@ -157,7 +151,7 @@ func TestResource_Titles(t *testing.T) {
 
 func TestResource_Href(t *testing.T) {
 	r := testResources()
-	table := map[string]struct{
+	table := map[string]struct {
 		resource *resource.Resource
 		expected string
 	}{
@@ -191,3 +185,4 @@ func TestResource_Href(t *testing.T) {
 		})
 	}
 }
+*/

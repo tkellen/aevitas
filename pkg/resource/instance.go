@@ -1,31 +1,38 @@
 package resource
 
 import (
+	"context"
+	"fmt"
 	"github.com/go-git/go-billy/v5"
 	"github.com/tkellen/aevitas/pkg/manifest"
 )
 
-type instance struct {
-	self    interface{}
-	asAsset asset
-	source  billy.Filesystem
-	dest    billy.Filesystem
+// Asset represents a instance that can be rendered.
+type Asset interface {
+	Render(context.Context, billy.Filesystem, billy.Filesystem) error
 }
 
-func newInstance(factory *Factory, m *manifest.Manifest) (*instance, error) {
+type Instance struct {
+	Self    interface{}
+	AsAsset Asset
+	Source  billy.Filesystem
+	Dest    billy.Filesystem
+}
+
+func newInstance(factory *Factory, m *manifest.Manifest) (*Instance, error) {
 	handler, handlerErr := factory.Handler(m)
 	if handlerErr != nil {
 		return nil, handlerErr
 	}
 	instantiated, newErr := handler.New(m)
 	if newErr != nil {
-		return nil, newErr
+		return nil, fmt.Errorf("instantiating: %w", newErr)
 	}
-	asset, _ := instantiated.(asset)
-	return &instance{
-		self:    instantiated,
-		asAsset: asset,
-		source:  handler.source,
-		dest:    handler.dest,
+	asset, _ := instantiated.(Asset)
+	return &Instance{
+		Self:    instantiated,
+		AsAsset: asset,
+		Source:  handler.source,
+		Dest:    handler.dest,
 	}, nil
 }

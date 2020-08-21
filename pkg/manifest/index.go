@@ -7,6 +7,7 @@ import (
 	"github.com/tkellen/aevitas/internal/selector"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Index provides fast lookups for finding resources during rendering.
@@ -55,7 +56,9 @@ func (i *Index) FindMany(target *selector.Selector) ([]*Manifest, error) {
 		if shardErr != nil {
 			return nil, shardErr
 		}
-		return shard.manifests, nil
+		// ensure a copy is returned to prevent external mutation (e.g sorting)
+		// ugh. i should use rust.
+		return append([]*Manifest{}, shard.manifests...), nil
 	}
 	match, err := i.content.findOne(target, false)
 	if err != nil {
@@ -87,6 +90,16 @@ func (i *Index) Prev(target *Manifest) *Manifest {
 	return shard.previous(target)
 }
 
+// SameMonthDay finds manifest within the target's KGVN that were published on
+// the same month and day.
+func (i *Index) SameMonthDay(target *Manifest) []*Manifest {
+	shard, shardErr := i.content.shardOf(target.Selector)
+	if shardErr != nil {
+		return nil
+	}
+	return shard.sameMonthDay(target)
+}
+
 // RelatedIndex returns a new index which contains only manifests which are
 // related to the supplied target.
 func (i *Index) RelatedIndex(target *Manifest) (*Index, error) {
@@ -97,6 +110,12 @@ func (i *Index) RelatedIndex(target *Manifest) (*Index, error) {
 		}, nil
 	}
 	return nil, fmt.Errorf("unable to find relationships for %s", target)
+}
+
+// RelationsHash returns a unique identifier for all relations of the target
+// manifest.
+func (i *Index) RelationsHash(target *Manifest) string {
+	return i.relations[target].hash()
 }
 
 func (i *Index) isRelated(target *Manifest, mustRelateTo *selector.Selector) (bool, error) {
@@ -153,10 +172,14 @@ func (i *Index) Collate() error {
 			if item.Meta == nil {
 				continue
 			}
+			relations := append(item.Meta.Imports, item.Meta.Relations...)
+			for _, child := range item.Meta.Children {
+				relations = append(relations, child.Relation)
+			}
 			var related []*Manifest
-			for _, relation := range append(item.Render.Imports, item.Relations...) {
+			for _, relation := range relations {
 				expanded, err := relation.Resolve(i)
-				if err != nil {
+				if !relation.Selector.IsWildcard() && err != nil {
 					return fmt.Errorf("%s: resolving relations: %w", item, err)
 				}
 				related = append(related, expanded...)
@@ -233,6 +256,14 @@ func (i *index) shardOf(target *selector.Selector) (*shard, error) {
 	return nil, fmt.Errorf("%s is empty", shardKey)
 }
 
+func (i *index) hash() string {
+	var hash strings.Builder
+	for _, entry := range i.all.manifests {
+		hash.WriteString(entry.Hash)
+	}
+	return hash.String()
+}
+
 func (i *index) collate() {
 	i.all.collate()
 	for _, shard := range i.shard {
@@ -260,7 +291,10 @@ func (i *index) findOne(target *selector.Selector, fastError bool) (*Manifest, e
 	return manifest, nil
 }
 
-// insert adds N manifests to the index.
+// insert adds N manifests that are currently marked as live and, if there is a
+// publication date, that the date is older than the time this is run. If a
+// manifest of the same ID has been previously inserted, trigger an error. This
+// error is for detecting duplicates during initial index creation.
 func (i *index) insert(manifests ...*Manifest) error {
 	var collisions bytes.Buffer
 	for _, m := range manifests {
@@ -305,6 +339,7 @@ type shard struct {
 	collated  bool
 	before    map[*Manifest]*Manifest
 	after     map[*Manifest]*Manifest
+	sameTime  map[time.Time][]*Manifest
 }
 
 // newShard does just what you think it does.
@@ -318,6 +353,7 @@ func (l *shard) collate() {
 	sort.Sort(manifestList(l.manifests))
 	l.before = map[*Manifest]*Manifest{}
 	l.after = map[*Manifest]*Manifest{}
+	l.sameTime = map[time.Time][]*Manifest{}
 	count := len(l.manifests)
 	if count > 1 {
 		for idx, manifest := range l.manifests {
@@ -327,6 +363,8 @@ func (l *shard) collate() {
 			if idx+1 < count {
 				l.after[manifest] = l.manifests[idx+1]
 			}
+			timeKey := manifest.PublishMonthDay()
+			l.sameTime[timeKey] = append(l.sameTime[timeKey], manifest)
 		}
 	}
 	l.collated = true
@@ -340,10 +378,10 @@ func (l *shard) previous(compare *Manifest) *Manifest {
 	return l.before[compare]
 }
 
-// insert adds N manifests that are currently marked as live and, if there is a
-// publication date, that the date is older than the time this is run. If a
-// manifest of the same ID has been previously inserted, trigger an error. This
-// error is for detecting duplicates during initial index creation.
+func (l *shard) sameMonthDay(compare *Manifest) []*Manifest {
+	return l.sameTime[compare.PublishMonthDay()]
+}
+
 func (l *shard) insert(manifests ...*Manifest) {
 	l.collated = false
 	for _, manifest := range manifests {

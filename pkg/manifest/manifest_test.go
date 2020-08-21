@@ -10,48 +10,39 @@ import (
 
 func TestNew(t *testing.T) {
 	type testCase struct {
-		input             []byte
-		expectedSelector  *selector.Selector
-		expectedMeta      *manifest.Meta
-		expectedRelations []*manifest.Relation
-		expectedRender    *manifest.Render
-		expectedErr       bool
+		input            []byte
+		expectedSelector *selector.Selector
+		expectedMeta     *manifest.Meta
+		expectedErr      bool
 	}
 	expectedSelector := selector.Must("k/g/v/ns/n")
 	expectedMeta := &manifest.Meta{
-		File:      "test",
-		HrefBase:  "/",
-		Href:      "test.html",
-		TitleBase: "base",
-		Title:     "title",
-	}
-	expectedRelations := []*manifest.Relation{{
-		Selector: selector.Must("a/b/c/d/e"),
-	}}
-	expectedRender := &manifest.Render{
+		File:       "test",
+		HrefPrefix: "/",
+		Href:       "test.html",
+		Title:      "Title",
+		Relations: []*manifest.Relation{{
+			Selector: selector.Must("a/b/c/d/e"),
+		}},
 		Children: []*manifest.Child{{
 			Relation: manifest.Relation{
 				Selector: selector.Must("e/d/c/b/a"),
 			},
-			Templates: []*selector.Selector{selector.Must("f/g/h/i/j")},
+			renderWith: []*selector.Selector{selector.Must("f/g/h/i/j")},
 		}},
 	}
 	table := map[string]testCase{
 		"from json": {
-			input:             []byte(`{"kind":"k","group":"g","version":"v","namespace":"ns","name":"n","meta":{"file":"test","hrefBase":"/","href":"test.html","titleBase":"base","title":"title"},"relations":[{"selector":"a/b/c/d/e"}],"render":{"children":[{"selector":"e/d/c/b/a","templates":["f/g/h/i/j"]}]}}`),
-			expectedSelector:  expectedSelector,
-			expectedMeta:      expectedMeta,
-			expectedRelations: expectedRelations,
-			expectedRender:    expectedRender,
-			expectedErr:       false,
+			input:            []byte(`{"kind":"k","group":"g","version":"v","namespace":"ns","name":"n","meta":{"file":"test","hrefPrefix":"/","href":"test.html","title":"Title","relations":[{"selector":"a/b/c/d/e"}],"children":[{"selector":"e/d/c/b/a","templates":["f/g/h/i/j"]}]}}`),
+			expectedSelector: expectedSelector,
+			expectedMeta:     expectedMeta,
+			expectedErr:      false,
 		},
 		"with yaml as frontmatter": {
-			input:             []byte("---\nkind: k\ngroup: g\nversion: v\nnamespace: ns\nname: \"n\"\nmeta:\n  file: test\n  hrefBase: /\n  href: test.html\n  titleBase: base\n  title: title\nrelations:\n  - selector: a/b/c/d/e\nrender:\n  children:\n  - selector: e/d/c/b/a\n    templates: [f/g/h/i/j]\n\n---\ncontent"),
-			expectedSelector:  expectedSelector,
-			expectedMeta:      expectedMeta,
-			expectedRelations: expectedRelations,
-			expectedRender:    expectedRender,
-			expectedErr:       false,
+			input:            []byte("---\nkind: k\ngroup: g\nversion: v\nnamespace: ns\nname: \"n\"\nmeta:\n  file: test\n  hrefPrefix: /\n  href: test.html\n  title: Title\n  relations:\n  - selector: a/b/c/d/e\n  children:\n  - selector: e/d/c/b/a\n    renderWith: [f/g/h/i/j]\n\n---\ncontent"),
+			expectedSelector: expectedSelector,
+			expectedMeta:     expectedMeta,
+			expectedErr:      false,
 		},
 		"with invalid yaml as frontmatter": {
 			input:       []byte("---\n}::: BAD :::{\n---\ncontent"),
@@ -81,12 +72,6 @@ func TestNew(t *testing.T) {
 				}
 				if !reflect.DeepEqual(test.expectedMeta, actual.Meta) {
 					t.Fatalf("expected %#v, got %#v", test.expectedMeta, actual.Meta)
-				}
-				if !reflect.DeepEqual(test.expectedRelations, actual.Relations) {
-					t.Fatalf("expected %#v, got %#v", test.expectedRelations, actual.Relations)
-				}
-				if !reflect.DeepEqual(test.expectedRender, actual.Render) {
-					t.Fatalf("expected %#v, got %#v", test.expectedRender, actual.Render)
 				}
 			}
 		})
@@ -120,67 +105,5 @@ func TestManifest_EqualGreaterLess(t *testing.T) {
 	}
 	if first.Greater(last) {
 		t.Fatal("did not expect first to be greater than last")
-	}
-}
-
-func TestManifest_Title(t *testing.T) {
-	table := map[string]struct {
-		resource *manifest.Manifest
-		expected string
-	}{
-		"both empty": {
-			resource: &manifest.Manifest{
-				Meta: &manifest.Meta{
-					TitleBase: "",
-					Title:     "",
-				},
-			},
-			expected: "",
-		},
-		"base has value, title empty": {
-			resource: &manifest.Manifest{
-				Meta: &manifest.Meta{
-					TitleBase: "base",
-					Title:     "",
-				},
-			},
-			expected: "base",
-		},
-		"base empty, title has value": {
-			resource: &manifest.Manifest{
-				Meta: &manifest.Meta{
-					TitleBase: "",
-					Title:     "title",
-				},
-			},
-			expected: "title",
-		},
-		"base has value, title has value": {
-			resource: &manifest.Manifest{
-				Meta: &manifest.Meta{
-					TitleBase: "base",
-					Title:     "title",
-				},
-			},
-			expected: "title base",
-		},
-		"base and title have same value": {
-			resource: &manifest.Manifest{
-				Meta: &manifest.Meta{
-					TitleBase: "equal",
-					Title:     "equal",
-				},
-			},
-			expected: "equal",
-		},
-	}
-	for name, test := range table {
-		test := test
-		t.Run(name, func(t *testing.T) {
-			actual := test.resource.Title()
-			if test.expected != actual {
-				t.Fatalf("expected %s got %s", test.expected, actual)
-			}
-		})
 	}
 }

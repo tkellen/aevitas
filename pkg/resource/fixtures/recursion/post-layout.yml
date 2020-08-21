@@ -8,7 +8,7 @@ meta:
 render:
   imports:
   - name: authorsCollection
-    selector: website/page/v1/collection/authors
+    selector: website/content/v1/collection/authors
 body: |-
   {{ authorsCollection.Href }}
   {{ yield }}

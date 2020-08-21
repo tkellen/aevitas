@@ -25,14 +25,12 @@ func generateManifests(count int) []*manifest.Manifest {
 			Selector: selector.Must(fmt.Sprintf("test/number/v1/integer/%s", asWord(idx))),
 			Meta: &manifest.Meta{
 				Live: true,
-				// Manifest ordering within a given kind/group/version/namespace
+				// Resource ordering within a given kind/group/version/namespace
 				// is governed by publish date. Increment so manifests can be
 				// validated to respect this.
 				PublishAt: &manifest.PublishAt{Year: year, Month: int(month), Day: day},
-			},
-			Relations: generateRelatedTo(idx),
-			Render: &manifest.Render{
-				Imports: []*manifest.Relation{},
+				Relations: generateRelatedTo(idx),
+				Imports:   []*manifest.Relation{},
 			},
 		}
 		result[idx] = manifest
@@ -76,27 +74,27 @@ func generateIndex(manifests []*manifest.Manifest) *manifest.Index {
 	// Insert "sets" (to create relationships).
 	if err := index.Insert(
 		&manifest.Manifest{
-			Selector:  selector.Must("test/number/v1/set/prime"),
-			Meta:      &manifest.Meta{Live: true},
-			Relations: []*manifest.Relation{},
-			Render: &manifest.Render{
-				Imports: []*manifest.Relation{},
+			Selector: selector.Must("test/number/v1/set/prime"),
+			Meta: &manifest.Meta{
+				Live:      true,
+				Relations: []*manifest.Relation{},
+				Imports:   []*manifest.Relation{},
 			},
 		},
 		&manifest.Manifest{
-			Selector:  selector.Must("test/number/v1/set/even"),
-			Meta:      &manifest.Meta{Live: true},
-			Relations: []*manifest.Relation{},
-			Render: &manifest.Render{
-				Imports: []*manifest.Relation{},
+			Selector: selector.Must("test/number/v1/set/even"),
+			Meta: &manifest.Meta{
+				Live:      true,
+				Relations: []*manifest.Relation{},
+				Imports:   []*manifest.Relation{},
 			},
 		},
 		&manifest.Manifest{
-			Selector:  selector.Must("test/number/v1/set/odd"),
-			Meta:      &manifest.Meta{Live: true},
-			Relations: []*manifest.Relation{},
-			Render: &manifest.Render{
-				Imports: []*manifest.Relation{},
+			Selector: selector.Must("test/number/v1/set/odd"),
+			Meta: &manifest.Meta{
+				Live:      true,
+				Relations: []*manifest.Relation{},
+				Imports:   []*manifest.Relation{},
 			},
 		},
 	); err != nil {
@@ -105,11 +103,11 @@ func generateIndex(manifests []*manifest.Manifest) *manifest.Index {
 	// Insert "oddball" item that is not in the kind/group/version/namespace
 	// as numbers.
 	if err := index.Insert(&manifest.Manifest{
-		Selector:  selector.Must("test/number/v1/oddball/item"),
-		Meta:      &manifest.Meta{Live: true},
-		Relations: []*manifest.Relation{},
-		Render: &manifest.Render{
-			Imports: []*manifest.Relation{},
+		Selector: selector.Must("test/number/v1/oddball/item"),
+		Meta: &manifest.Meta{
+			Live:      true,
+			Relations: []*manifest.Relation{},
+			Imports:   []*manifest.Relation{},
 		},
 	}); err != nil {
 		panic(err)
@@ -120,7 +118,7 @@ func generateIndex(manifests []*manifest.Manifest) *manifest.Index {
 	return index
 }
 
-func TestIndex_NextPrevious(t *testing.T) {
+func TestIndex_navTimeious(t *testing.T) {
 	// Generate numbers array of manifests.
 	numbers := generateManifests(3)
 	index := generateIndex(numbers)
@@ -166,57 +164,56 @@ func TestIndex_NextPrevious(t *testing.T) {
 func TestIndex_Relationships(t *testing.T) {
 	numbers := generateManifests(1000)
 	index := generateIndex(t, numbers)
-	fmt.Fprintf(os.Stdout, "%s")
 
-	m := map[string]*manifest.Manifest{
-		"meat": {Manifest: s["meat"], Meta: &manifest.Meta{
+	m := map[string]*manifest.Resource{
+		"meat": {Resource: s["meat"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{
+			relations: []*manifest.Resource{
 				s["taco"], // meat is also related to taco by way of the taco
 				// including it. this helps assert that during the
 				// aggregation of relations the same manifest is not
 				// collected more than once.
 			},
 		}},
-		"cheese": {Manifest: s["cheese"], Meta: &manifest.Meta{
+		"cheese": {Resource: s["cheese"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{},
+			relations: []*manifest.Resource{},
 		}},
-		"tomato": {Manifest: s["tomato"], Meta: &manifest.Meta{
+		"tomato": {Resource: s["tomato"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{},
+			relations: []*manifest.Resource{},
 		}},
-		"onion": {Manifest: s["onion"], Meta: &manifest.Meta{
+		"onion": {Resource: s["onion"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{},
+			relations: []*manifest.Resource{},
 		}},
-		"noodles": {Manifest: s["noodles"], Meta: &manifest.Meta{
+		"noodles": {Resource: s["noodles"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{},
+			relations: []*manifest.Resource{},
 		}},
-		"taco": {Manifest: s["taco"], Meta: &manifest.Meta{
+		"taco": {Resource: s["taco"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{},
+			relations: []*manifest.Resource{},
 			imports: map[string]*RenderTarget{
-				"meat": {Manifest: s["meat"]},
-				"cheese": {Manifest: s["cheese"]},
-				"tomato": {Manifest: s["tomato"]},
-				"onion": {Manifest: s["onion"]},
+				"meat": {Resource: s["meat"]},
+				"cheese": {Resource: s["cheese"]},
+				"tomato": {Resource: s["tomato"]},
+				"onion": {Resource: s["onion"]},
 			},
 		}},
-		"spaghetti": {Manifest: s["spaghetti"], Meta: &manifest.Meta{
+		"spaghetti": {Resource: s["spaghetti"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{},
+			relations: []*manifest.Resource{},
 			imports: map[string]*RenderTarget{
-				"meat": {Manifest: s["meat"]},
-				"tomato": {Manifest: s["tomato"]},
-				"onion": {Manifest: s["onion"]},
-				"noodles": {Manifest: s["noodles"]},
+				"meat": {Resource: s["meat"]},
+				"tomato": {Resource: s["tomato"]},
+				"onion": {Resource: s["onion"]},
+				"noodles": {Resource: s["noodles"]},
 			},
 		}},
-		"dishes": {Manifest: s["dishes"], Meta: &manifest.Meta{
+		"dishes": {Resource: s["dishes"], Meta: &manifest.Meta{
 			Live: true,
-			relations: []*manifest.Manifest{s["taco"], s["spaghetti"]},
+			relations: []*manifest.Resource{s["taco"], s["spaghetti"]},
 			imports: map[string]*RenderTarget{},
 		}},
 	}
@@ -226,15 +223,15 @@ func TestIndex_Relationships(t *testing.T) {
 	}
 	expected := Relations{
 		Index: index(t, list.manifests),
-		Relationships: map[*manifest.Manifest]*Index{
-			m["meat"]:      index(t, []*manifest.Manifest{m["taco"], m["spaghetti"]}),
-			m["cheese"]:    index(t, []*manifest.Manifest{m["taco"]}),
-			m["tomato"]:    index(t, []*manifest.Manifest{m["taco"], m["spaghetti"]}),
-			m["onion"]:     index(t, []*manifest.Manifest{m["taco"], m["spaghetti"]}),
-			m["noodles"]:   index(t, []*manifest.Manifest{m["spaghetti"]}),
-			m["taco"]:      index(t, []*manifest.Manifest{m["meat"], m["cheese"], m["tomato"], m["onion"]}),
-			m["spaghetti"]: index(t, []*manifest.Manifest{m["meat"], m["tomato"], m["onion"], m["noodles"]}),
-			m["dishes"]:    index(t, []*manifest.Manifest{m["taco"], m["spaghetti"]}),
+		Relationships: map[*manifest.Resource]*Index{
+			m["meat"]:      index(t, []*manifest.Resource{m["taco"], m["spaghetti"]}),
+			m["cheese"]:    index(t, []*manifest.Resource{m["taco"]}),
+			m["tomato"]:    index(t, []*manifest.Resource{m["taco"], m["spaghetti"]}),
+			m["onion"]:     index(t, []*manifest.Resource{m["taco"], m["spaghetti"]}),
+			m["noodles"]:   index(t, []*manifest.Resource{m["spaghetti"]}),
+			m["taco"]:      index(t, []*manifest.Resource{m["meat"], m["cheese"], m["tomato"], m["onion"]}),
+			m["spaghetti"]: index(t, []*manifest.Resource{m["meat"], m["tomato"], m["onion"], m["noodles"]}),
+			m["dishes"]:    index(t, []*manifest.Resource{m["taco"], m["spaghetti"]}),
 		},
 	}
 	actual, err := NewRelations(index(t, list.manifests))
@@ -248,7 +245,7 @@ func TestIndex_Relationships(t *testing.T) {
 			t.Fatalf("expected\n%s\nactual\n%s", expected, actual)
 		}
 
-	s := map[string]*manifest.Manifest{
+	s := map[string]*manifest.Resource{
 		"kgv1aa": {kind: "k", group: "g", version: "v1", namespace: "a", name: "a"},
 		"kgv1ab": {kind: "k", group: "g", version: "v1", namespace: "a", name: "b"},
 		"kgv1ba": {kind: "k", group: "g", version: "v1", namespace: "b", name: "a"},
@@ -258,27 +255,27 @@ func TestIndex_Relationships(t *testing.T) {
 		"kgv2ba": {kind: "k", group: "g", version: "v2", namespace: "b", name: "a"},
 		"kgv2bb": {kind: "k", group: "g", version: "v2", namespace: "b", name: "b"},
 	}
-	m := map[string]*manifest.Manifest{
-		"kgv1aa": {Manifest: s["kgv1aa"]},
-		"kgv1ab": {Manifest: s["kgv1ab"]},
-		"kgv1ba": {Manifest: s["kgv1ba"]},
-		"kgv1bb": {Manifest: s["kgv1bb"]},
-		"kgv2aa": {Manifest: s["kgv2aa"]},
-		"kgv2ab": {Manifest: s["kgv2ab"]},
-		"kgv2ba": {Manifest: s["kgv2ba"]},
-		"kgv2bb": {Manifest: s["kgv2bb"]},
+	m := map[string]*manifest.Resource{
+		"kgv1aa": {Resource: s["kgv1aa"]},
+		"kgv1ab": {Resource: s["kgv1ab"]},
+		"kgv1ba": {Resource: s["kgv1ba"]},
+		"kgv1bb": {Resource: s["kgv1bb"]},
+		"kgv2aa": {Resource: s["kgv2aa"]},
+		"kgv2ab": {Resource: s["kgv2ab"]},
+		"kgv2ba": {Resource: s["kgv2ba"]},
+		"kgv2bb": {Resource: s["kgv2bb"]},
 	}
 	index := manifest.NewIndex()
 	for _, item := range m {
 		index.Insert(item)
 	}
-	expectedShards := map[*manifest.Manifest][]*manifest.Manifest{
-		&manifest.Manifest{kind:"k", group:"g", version:"v1", namespace: "a", name: "*"}: {m["kgv1aa"],m["kgv1ab"]},
-		&manifest.Manifest{kind:"k", group:"g", version:"v1", namespace: "b", name: "*"}: {m["kgv1ba"],m["kgv1bb"]},
-		&manifest.Manifest{kind:"k", group:"g", version:"v2", namespace: "a", name: "*"}: {m["kgv2aa"],m["kgv2ab"]},
-		&manifest.Manifest{kind:"k", group:"g", version:"v2", namespace: "b", name: "*"}: {m["kgv2ba"],m["kgv2bb"]},
+	expectedShards := map[*manifest.Resource][]*manifest.Resource{
+		&manifest.Resource{kind:"k", group:"g", version:"v1", namespace: "a", name: "*"}: {m["kgv1aa"],m["kgv1ab"]},
+		&manifest.Resource{kind:"k", group:"g", version:"v1", namespace: "b", name: "*"}: {m["kgv1ba"],m["kgv1bb"]},
+		&manifest.Resource{kind:"k", group:"g", version:"v2", namespace: "a", name: "*"}: {m["kgv2aa"],m["kgv2ab"]},
+		&manifest.Resource{kind:"k", group:"g", version:"v2", namespace: "b", name: "*"}: {m["kgv2ba"],m["kgv2bb"]},
 	}
-	index.FindMany(&manifest.Manifest{kind:"k", "G"})/*
+	index.FindMany(&manifest.Resource{kind:"k", "G"})/*
 	actual, err := list.Indexed()
 	if err != nil {
 		t.Fatal(err)

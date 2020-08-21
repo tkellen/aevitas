@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/go-git/go-billy/v5/osfs"
+	"github.com/tkellen/aevitas/internal/render"
 	"github.com/tkellen/aevitas/pkg/manifest"
 	"github.com/tkellen/aevitas/pkg/resource"
 	"github.com/vbauerster/mpb/v5"
@@ -15,13 +16,13 @@ import (
 type RenderCmd struct {
 	Load        []string `name:"load" short:"l" type:"existingdir" help:"Directory containing manifests."`
 	Concurrency int64    `help:"Control how many parallel renders can be run" default:10`
-	AssetRoot   string   `required name:"asset" short:"a" type:"existingdir" help:"Tree path to assets." default:"${cwd}"`
+	Progress    bool     `help:"Show progress during render operation"`
+	AssetRoot   string   `required name:"asset" short:"a" type:"existingdir" help:"RenderTree path to assets." default:"${cwd}"`
 	Output      string   `required name:"output" short:"o" help:"Path for output."`
 	Selector    string   `arg required name:"selector" help:"manifest to render."`
 }
 
-func progress(wg sync.WaitGroup, ui *mpb.Progress, name string) func(count int, progress <-chan struct{}) {
-	wg.Add(1)
+func progress(ui *mpb.Progress, name string) func(count int, progress <-chan struct{}) {
 	return func(count int, progress <-chan struct{}) {
 		bar := ui.AddBar(
 			int64(count),
@@ -40,19 +41,24 @@ func progress(wg sync.WaitGroup, ui *mpb.Progress, name string) func(count int, 
 
 func (r *RenderCmd) Run(ctx *Context) error {
 	stat, _ := ctx.Stdin.Stat()
-	var wg sync.WaitGroup
-	// pass &wg (optional), so p will wait for it eventually
 	ui := mpb.New(
 		mpb.WithWidth(180),
 		mpb.WithRefreshRate(180*time.Millisecond),
-		mpb.WithWaitGroup(&wg),
+		mpb.WithWaitGroup(&sync.WaitGroup{}),
 	)
+	bars := map[string]func(count int, progress <-chan struct{}){}
+	if r.Progress {
+		bars["stdin"] = progress(ui, "reading stdin")
+		bars["file"] = progress(ui, "reading files")
+		bars["asset"] = progress(ui, "render assets")
+		bars["page"] = progress(ui, "render pages ")
+	}
 	eg := errgroup.Group{}
 	queue := make(chan *manifest.Manifest)
 	// Collect manifests provided over standard in.
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		eg.Go(func() error {
-			list, err := manifest.NewFromReader(ctx.Stdin, progress(wg, ui, "reading stdin"))
+			list, err := manifest.NewFromReader(ctx.Stdin, bars["stdin"])
 			if err != nil {
 				return err
 			}
@@ -64,7 +70,7 @@ func (r *RenderCmd) Run(ctx *Context) error {
 	}
 	// Collect manifests in provided paths.
 	eg.Go(func() error {
-		list, err := manifest.NewFromDirs(r.Load, progress(wg, ui, "reading files"))
+		list, err := manifest.NewFromDirs(r.Load, bars["file"])
 		if err != nil {
 			return err
 		}
@@ -100,19 +106,20 @@ func (r *RenderCmd) Run(ctx *Context) error {
 	inputRoot := osfs.New(r.AssetRoot)
 	outputRoot := osfs.New(r.Output)
 	factory := resource.DefaultFactory(inputRoot, outputRoot)
-	rt, rsErr := resource.NewTree(r.Selector, index, factory)
-	if rsErr != nil {
-		return rsErr
+	t, tErr := render.NewTree(r.Selector, index, factory)
+	if tErr != nil {
+		return tErr
 	}
-	if err := rt.Render(
+	if err := t.Render(
 		ctx.Background,
 		r.Concurrency,
-		progress(wg, ui, "render assets"),
-		progress(wg, ui, "render pages "),
+		bars["asset"],
+		bars["page"],
 	); err != nil {
 		return err
 	}
-	wg.Wait()
+	if r.Progress {
+		ui.Wait()
+	}
 	return nil
 }
-

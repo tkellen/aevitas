@@ -26,7 +26,7 @@ func NewPng(m *manifest.Manifest) (*Png, error) {
 }
 
 func (img *Png) Render(ctx context.Context, source billy.Filesystem, dest billy.Filesystem) error {
-	scopedDest, scopeErr := dest.Chroot(img.Manifest.Meta.HrefBase)
+	scopedDest, scopeErr := dest.Chroot(img.Manifest.Meta.HrefPrefix)
 	if scopeErr != nil {
 		return scopeErr
 	}

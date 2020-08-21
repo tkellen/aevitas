@@ -21,7 +21,6 @@ require (
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
 	github.com/pixiv/go-libjpeg v0.0.0-20190822045933-3da21a74767d
 	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/tebeka/strftime v0.1.5 // indirect

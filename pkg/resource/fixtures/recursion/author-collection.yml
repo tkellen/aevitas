@@ -1,5 +1,5 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: collection
 name: authors
@@ -10,6 +10,6 @@ meta:
 render:
   imports:
   - name: items
-    selector: website/page/v1/author/*
+    selector: website/content/v1/author/*
 body: |-
   {{ items }}

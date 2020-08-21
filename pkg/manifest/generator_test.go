@@ -10,13 +10,12 @@ func TestGenerator_Generate(t *testing.T) {
 			{Name: "days", Range: [2]int{1, 31}},
 		},
 	}
-	manifests, err := generator.Generate(&manifest.Manifest{
+	manifests, err := generator.Generate(&manifest.Resource{
 		Selector: selector.Must("kind/group/version/ns/name"),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Fprintf(os.Stdout, "%s", manifests)
 }
 
 func TestNewFromGenerator(t *testing.T) {
@@ -42,40 +41,38 @@ func TestNewFromGenerator(t *testing.T) {
   "name": "{{ $month }}-{{ $day }}",
   "meta": {
     "live": true,
-    "hrefBase": "/{{ printf "%02d" $month }}/{{ printf "%02d" $day }}",
+    "HrefPrefix": "/{{ printf "%02d" $month }}/{{ printf "%02d" $day }}",
     "templates": [
       "html/template/v1/post/related-layout",
-      "html/template/v1/default/layout"
+      "html/template/v1/core/layout"
     ],
     "relations": [{
-      "selector": "website/page/v1/post/*",
-      "navigationScopedByParent": true,
+      "selector": "website/content/v1/post/*",
       "matchExpression": [
         { "key": "meta.publishAt.month", "operator": "In", "values": [{{ $month }}] },
         { "key": "meta.publishAt.day", "operator": "In", "values": [{{ $day }}] }
       ]
     }],
     "renderAsChild": [{
-      "selector": "website/page/v1/post/*",
+      "selector": "website/content/v1/post/*",
       "matchIfRelatedTo": [
-        "website/page/v1/day/{{ $month }}-{{ $day }}"
+        "website/content/v1/day/{{ $month }}-{{ $day }}"
       ],
-      "navigationScopedByParent": true,
       "templates": [
         "html/template/v1/post/layout",
         "html/template/v1/post/scoped",
-        "html/template/v1/default/layout"
+        "html/template/v1/core/layout"
       ]
     }]
   },
   "spec": {
-    "title": "{{ $month }}-{{ $day }}",
+    "Title": "{{ $month }}-{{ $day }}",
     "titleFragment": "Posts made on {{ $month }} / {{ $day }}",
     "body": "The {{ $day }} day of the {{ $month }} month."
   }
 }`,
 	}
-	manifests, err := manifest.NewFromGenerator(generator, &manifest.Manifest{
+	manifests, err := manifest.NewFromGenerator(generator, &manifest.Resource{
 		Selector: manifest.NewSelectorMust("k/g/v1/ns/n"),
 	})
 	expected := 366

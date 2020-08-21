@@ -68,7 +68,7 @@ func (r *Factory) Handler(target *manifest.Manifest) (*Handler, error) {
 		}
 	}
 	if factory == nil {
-		return nil, fmt.Errorf("%s: no registered factory", target)
+		return nil, fmt.Errorf("%s: no registered factory", target.Selector)
 	}
 	return factory, nil
 }
@@ -81,7 +81,7 @@ func DefaultFactory(
 	factory.Register(fmt.Sprintf("%s/*/*", "html/template/v1"), func(m *manifest.Manifest) (interface{}, error) {
 		return m, nil
 	})
-	factory.Register(fmt.Sprintf("%s/*/*", "website/page/v1"), func(m *manifest.Manifest) (interface{}, error) {
+	factory.Register(fmt.Sprintf("%s/*/*", "website/content/v1"), func(m *manifest.Manifest) (interface{}, error) {
 		return m, nil
 	})
 	factory.Register(fmt.Sprintf("%s/*/*", assetv1.KGVGif), func(m *manifest.Manifest) (interface{}, error) {

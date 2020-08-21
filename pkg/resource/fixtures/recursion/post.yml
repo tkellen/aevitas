@@ -1,5 +1,5 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: post
 name: one
@@ -12,6 +12,6 @@ meta:
     month: 7
     day: 1
 relations:
-- selector: website/page/v1/author/tyler
+- selector: website/content/v1/author/tyler
 body: |-
   <p>Post numero uno.</p>

@@ -1,5 +1,5 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: author
 name: tyler
@@ -7,13 +7,13 @@ meta:
   live: true
   titleBase: Tyler Kellen
   description: Entries authored by Tyler Kellen.
-  hrefBase: /author/tyler
+  hrefPrefix: /author/tyler
 render:
   children:
-  - selector: website/page/v1/post/*
+  - selector: website/content/v1/post/*
     matchIfRelatedTo:
-    - website/page/v1/author/tyler
-    templates:
+    - website/content/v1/author/tyler
+    renderWith:
     - html/template/v1/post/layout
 body: |-
   {{ .Meta.Description }}
