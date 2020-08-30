@@ -1,0 +1,31 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: title
+meta:
+  live: true
+  imports:
+  - name: listCanonical
+    selector: html/template/v1/core/list-canonical
+  importsDynamic:
+  - name: authors
+    selector: website/content/v1/author/*
+    matchIfRelatedToContext: true
+body: |-
+  {{ if .Scope }}
+  <div class="scope">...filed under <a href="{{ .Scope.Href }}">{{ .Scope.Title }}</a> (<a href="{{ .HrefCanonical }}">remove scope</a>)</div>
+  <hr>
+  {{ end }}
+  <div class="title no-automargin">
+    <div>
+      <h1><a href="{{ .HrefCanonical }}">{{ .Title }}</a></h1>
+      {{ if .Meta.PublishAt }}
+      <div class="date">{{ .Date "%B" }} {{ if .Meta.PublishAt.Day }}{{ ordinal .Meta.PublishAt.Day }}, {{ end }} {{ .Meta.PublishAt.Year }}</div>
+      {{ end }}
+    </div>
+    {{/* Don't show authors on author listing page */}}
+    {{ if (and authors (ne .Selector.ID "website/content/v1/collection/authors")) }}
+      <ul class="byline">{{ listCanonical authors }}</ul>
+    {{ end }}
+  </div>

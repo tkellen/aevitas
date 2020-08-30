@@ -1,0 +1,15 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: wrap-nav
+meta:
+  live: true
+  imports:
+  - name: navToggles
+    selector: html/template/v1/core/nav-toggles
+body: |-
+  {{- $nav := (navToggles .) -}}
+  {{ if $nav }}<div class="left-or-top">{{ $nav }}</div>{{ end }}
+  {{ yield }}
+  {{ if $nav }}<div class="right-or-bottom pin-to-bottom">{{ $nav }}</div>{{ end }}

@@ -1,0 +1,31 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: pages
+meta:
+  live: true
+  title: Home
+  href: index.html
+  renderWith: [html/template/v1/page/layout]
+  relations:
+  - selector: website/content/v1/author/tyler
+  imports:
+  - name: image
+    selector: html/template/v1/core/image
+  children:
+  - selector: website/content/v1/page/*
+  - name: posts
+    selector: website/content/v1/post/*
+    limit: 24
+    order: desc
+body: |-
+  <div class="image-grid">
+  {{ range $index, $item := posts }}
+    {{ with $item }}
+      {{ if .Associated.featurePhoto }}
+        <div class="item"><a href="{{ .HrefCanonical }}">{{ image (call .Associated.featurePhoto) }}</a></div>
+      {{ end }}
+    {{ end}}
+  {{ end }}
+  </div>

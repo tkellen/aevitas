@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: paved-road
+meta:
+  file: paved-road.jpg
+  live: true
+  title: Motion Blur Road
+  hrefPrefix: /image/paved-road
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 07
+    day: 18
+    hour: 17
+    minute: 35
+    second: 29
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

@@ -1,0 +1,16 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: topics
+meta:
+  live: true
+  title: Topics
+  description: All topics written about.
+  href: /topic/index.html
+  renderWith: [html/template/v1/collection/layout]
+  children:
+  - name: entries
+    selector: website/content/v1/topic/*
+body: |-
+  <p>{{ .Meta.Description }}</p>

@@ -1,0 +1,15 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: authors
+meta:
+  live: true
+  title: Authors
+  description: All contributing authors.
+  href: /author/index.html
+  children:
+  - name: entries
+    selector: website/content/v1/author/*
+body: |-
+  <p>{{ .Meta.Description }}</p>

@@ -1,0 +1,26 @@
+kind: website
+group: content
+version: v1
+name: first
+namespace: album
+meta:
+  live: true
+  title: First
+  href: /album/first/index.html
+  publishAt:
+    year: 2020
+    month: 07
+    day: 01
+  renderWith: [html/template/v1/album/layout]
+  relations:
+  - selector: asset/jpeg/v1/image/asian-architecture
+  - selector: asset/jpeg/v1/image/cows
+  - selector: asset/jpeg/v1/image/foliage
+  - selector: asset/jpeg/v1/image/hammock-feet
+  - selector: asset/jpeg/v1/image/kiosk
+  - selector: asset/jpeg/v1/image/monkey
+  - selector: asset/jpeg/v1/image/nun
+  - selector: asset/jpeg/v1/image/paved-road
+  imports:
+  - name: featurePhoto
+    selector: asset/jpeg/v1/image/nun

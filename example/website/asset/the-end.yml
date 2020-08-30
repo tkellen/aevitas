@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: the-end
+meta:
+  file: the-end.jpg
+  live: true
+  title: The End, Shadow Puppet
+  hrefPrefix: /image/the-end
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 11
+    day: 07
+    hour: 20
+    minute: 00
+    second: 50
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

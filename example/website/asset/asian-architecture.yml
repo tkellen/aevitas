@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: asian-architecture
+meta:
+  file: asian-architecture.jpg
+  live: true
+  title: Phuoc Kien Assembly Hall Architecture
+  hrefPrefix: /image/asian-architecture
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2011
+    month: 01
+    day: 16
+    hour: 10
+    minute: 02
+    second: 44
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

@@ -1,0 +1,12 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: image
+meta:
+  live: true
+body: |-
+  <img src="{{ .Meta.HrefPrefix }}/{{ index .Spec.Widths 0 }}"
+    srcset="{{ range $index, $width := .Spec.Widths }}{{ if $index }} , {{ end }}{{ $.Meta.HrefPrefix }}/{{ $width }} {{ $width }}w{{ end }}"
+    alt="{{ .Title }}"
+    title="{{ .Title }}" />

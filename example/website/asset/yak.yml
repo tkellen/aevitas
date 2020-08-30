@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: yak
+meta:
+  file: yak.jpg
+  live: true
+  title: Yak!
+  hrefPrefix: /image/yak
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 09
+    day: 03
+    hour: 17
+    minute: 45
+    second: 30
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

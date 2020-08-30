@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: sod-roof
+meta:
+  file: sod-roof.jpg
+  live: true
+  title: Traditional Green Roof
+  hrefPrefix: /image/sod-roof
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 07
+    day: 16
+    hour: 14
+    minute: 00
+    second: 57
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

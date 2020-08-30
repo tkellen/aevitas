@@ -1,0 +1,34 @@
+kind: html
+group: template
+version: v1
+namespace: image
+name: layout
+meta:
+  live: true
+  renderWith:
+  - html/template/v1/core/wrap-content
+  - html/template/v1/core/wrap-nav
+  - html/template/v1/core/wrap-header-footer
+  - html/template/v1/core/layout
+  imports:
+  - name: title
+    selector: html/template/v1/core/title
+  - name: image
+    selector: html/template/v1/core/image
+  - name: list
+    selector: html/template/v1/core/list
+  importsDynamic:
+  - name: featuredIn
+    selector: website/content/v1/post/*
+    matchIfRelatedToContext: true
+body: |-
+  {{ title . }}
+  {{ image . }}
+  {{ yield }}
+  <hr>
+  {{ if featuredIn }}
+    <h2>Featured In</h2>
+    <ul class="styled">
+    {{ list featuredIn }}
+    </ul>
+  {{ end }}

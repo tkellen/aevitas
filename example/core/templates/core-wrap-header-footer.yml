@@ -1,0 +1,16 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: wrap-header-footer
+meta:
+  live: true
+  imports:
+  - name: header
+    selector: html/template/v1/core/header
+  - name: footer
+    selector: html/template/v1/core/footer
+body: |-
+  {{ header . }}
+  {{ yield }}
+  {{ footer . }}

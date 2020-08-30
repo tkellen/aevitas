@@ -1,0 +1,31 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: nav-time
+meta:
+  live: true
+body: |-
+  {{- $yearsPastAndFuture := .YearsPastAndFuture -}}
+  {{ if $yearsPastAndFuture }}
+  <hr>
+  <h3 style="text-align:center">In Years Past and Future</h3>
+  <ul class="no-automargin">
+  {{ range $item := $yearsPastAndFuture }}
+    {{ with $item }}
+      <li style="text-align:center"><a href="{{ .HrefCanonical }}"><strong>{{ .Meta.PublishAt.Year }}</strong> | {{ .Title }}</a></li>
+    {{ end }}
+  {{ end }}
+  </ul>
+  {{ end }}
+  <hr>
+  <ul class="nextprev no-automargin">
+    <li>
+      <h3>Previous Entry{{ if .Scope }} in {{ .Scope.Title }}{{ end }}</h3>
+      {{ if .Prev }}<p><a href="{{ .Prev.Href }}">{{ .Prev.Title }}</a></p>{{ else }}<p>-</p>{{ end }}
+    </li>
+    <li>
+      <h3>Next Entry{{ if .Scope }} in {{ .Scope.Title }}{{ end }}</h3>
+      {{ if .Next }}<p><a href="{{ .Next.Href }}">{{ .Next.Title }}</a></p>{{ else }}<p>-</p>{{ end }}
+    </li>
+  </ul>

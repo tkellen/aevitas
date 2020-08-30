@@ -1,0 +1,28 @@
+<!--
+kind: website
+group: content
+version: v1
+namespace: post
+name: seven-hundred-thirty
+meta:
+  live: true
+  publishAt:
+    year: 2020
+    month: 7
+    day: 1
+  title: Post Number Seven Hundred Thirty - Two Year Anniversary
+  href: /%Y/%m/seven-hundred-thirty.html
+  renderWith: [html/template/v1/post/layout]
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/later-years
+  - selector: website/content/v1/topic/even
+  imports:
+  - name: image
+    selector: html/template/v1/core/linked-image
+  - name: featurePhoto
+    selector: asset/jpeg/v1/image/fork
+-->
+<p>Post numero setecientos treinta.</p>
+{{ image featurePhoto }}
+

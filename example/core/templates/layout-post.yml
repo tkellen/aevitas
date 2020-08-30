@@ -1,0 +1,47 @@
+kind: html
+group: template
+version: v1
+namespace: post
+name: layout
+meta:
+  live: true
+  renderWith:
+  - html/template/v1/core/wrap-content
+  - html/template/v1/core/wrap-nav
+  - html/template/v1/core/wrap-header-footer
+  - html/template/v1/core/layout
+  imports:
+  - name: title
+    selector: html/template/v1/core/title
+  - name: navTime
+    selector: html/template/v1/core/nav-time
+  - name: listCanonical
+    selector: html/template/v1/core/list-canonical
+  importsDynamic:
+  - name: relatedTopics
+    selector: website/content/v1/topic/*
+    matchIfRelatedToContext: true
+  - name: relatedEras
+    selector: website/content/v1/era/*
+    matchIfRelatedToContext: true
+body: |-
+  {{ title . }}
+  <hr>
+  {{ yield }}
+  <div class="navigation-contextual">
+    {{ navTime . }}
+    {{ if relatedEras }}
+      <hr>
+      <div class="no-automargin">
+        <h3>Part of an Era</h3>
+        <ul class="inline">{{ listCanonical relatedEras }}</ul>
+      </div>
+    {{ end }}
+    {{ if relatedTopics }}
+      <hr>
+      <div class="no-automargin">
+        <h3>Featured in Topics</h3>
+        <ul class="inline">{{ listCanonical relatedTopics }}</ul>
+      </div>
+    {{ end }}
+  </div>

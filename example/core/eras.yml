@@ -1,0 +1,16 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: eras
+meta:
+  live: true
+  title: Eras
+  description: All eras of life remarkable enough to be recorded.
+  href: /era/index.html
+  renderWith: [html/template/v1/collection/layout]
+  children:
+  - name: entries
+    selector: website/content/v1/era/*
+body: |-
+  <p>{{ .Meta.Description }}</p>

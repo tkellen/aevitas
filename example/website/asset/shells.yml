@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: shells
+meta:
+  file: shells.jpg
+  live: true
+  title: Shell Picking
+  hrefPrefix: /image/shells
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2009
+    month: 04
+    day: 12
+    hour: 14
+    minute: 34
+    second: 16
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

@@ -1,0 +1,22 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: nav-toggles
+meta:
+  live: true
+body: |-
+  {{- if (or .Prev .Next) -}}
+    <nav class="toggles">
+    {{ if .Prev }}
+      <a href="{{ .Prev.Href }}" class="previous">
+        <span class="a11y-only">Previous {{ if .Scope }}in {{ .Scope.Meta.Title }}: {{ end }}{{ .Prev.Title }}</span>
+      </a>
+    {{ end }}
+    {{ if .Next }}
+      <a href="{{ .Next.Href }}" class="next">
+        <span class="a11y-only">Next in {{ if .Scope }}in {{ .Scope.Meta.Title }}: {{ end }}{{ .Next.Title }}</span>
+      </a>
+    {{ end }}
+    </nav>
+  {{ end }}

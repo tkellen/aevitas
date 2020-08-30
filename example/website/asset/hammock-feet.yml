@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: hammock-feet
+meta:
+  file: hammock-feet.jpg
+  live: true
+  title: Tyler's Sandy Feet in Hammock
+  hrefPrefix: /image/hammock-feet
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 12
+    day: 09
+    hour: 12
+    minute: 13
+    second: 13
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

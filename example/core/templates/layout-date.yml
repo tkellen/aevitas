@@ -1,0 +1,34 @@
+kind: html
+group: template
+version: v1
+namespace: date
+name: layout
+meta:
+  live: true
+  renderWith:
+  - html/template/v1/core/wrap-content
+  - html/template/v1/core/wrap-nav
+  - html/template/v1/core/wrap-header-footer
+  - html/template/v1/core/layout
+  imports:
+  - name: categorize
+    selector: html/template/v1/core/nav-time
+  - name: list
+    selector: html/template/v1/core/list
+  importsDynamic:
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedToContext: true
+body: |-
+  <div class="title">
+    <h1><a href="{{ .HrefCanonical }}">{{ if .Meta.PublishAt.Month }} {{ .Date "%B" }}, {{ end }}{{ .Meta.PublishAt.Year }}</a></h1>
+  </div>
+  <hr>
+  {{ yield }}
+  {{ if entries }}
+    <ul class="styled">`
+    {{ list entries }}
+    </ul>
+  {{ end }}
+  {{ categorize . }}
+

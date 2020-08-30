@@ -1,24 +1,21 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: topic
 name: prime
 meta:
   live: true
-  titleBase: Prime Numbers
+  title: Prime Numbers
   description: Entries categorized under the topic of "Prime Numbers".
-  hrefBase: /topic/prime
-relations:
-- selector: website/page/v1/section/numeric
-render:
+  href: /topic/prime/index.html
+  renderWith: [html/template/v1/collection/layout]
+  relations:
+  - selector: website/content/v1/section/numeric
   children:
-  - selector: website/page/v1/post/*
-    matchIfRelatedTo:
-    - website/page/v1/topic/prime
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/scoped
-    - html/template/v1/default/layout
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedTo: [website/content/v1/topic/prime]
+    titlePrefix: Prime Numbers
+    hrefPrefix: /topic/prime
 body: |-
-  {{ .Meta.Description }}
+  <p>{{ .Meta.Description }}</p>

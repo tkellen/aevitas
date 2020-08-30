@@ -1,0 +1,20 @@
+<!--
+kind: website
+group: content
+version: v1
+namespace: post
+name: draft
+meta:
+  live: false
+  title: Draft Post
+  href: /%Y/%m/draft.html
+  renderWith: [html/template/v1/post/layout]
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/early-days
+  - selector: website/content/v1/topic/even
+  - name: featurePhoto
+    selector: asset/jpeg/v1/image/foliage
+-->
+<p>Post numero cuatro.</p>
+

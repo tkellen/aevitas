@@ -1,0 +1,30 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: header
+meta:
+  live: true
+  imports:
+  - name: aboutPage
+    selector: website/content/v1/page/about
+  - name: contactPage
+    selector: website/content/v1/page/contact
+  - name: currentPost
+    selector: website/content/v1/post/*
+    limit: 1
+    order: desc
+body: |-
+  <div class="header">
+    <div class="constrain-width">
+      <h1><a href="/">website.com</a></h1>
+      <ul>
+        <li><a href="{{ (index currentPost 0).HrefCanonical }}">journal</a></li>
+        <li><a href="{{ aboutPage.HrefCanonical }}">about</a></li>
+        <li><a href="{{ contactPage.HrefCanonical }}">contact</a></li>
+      </ul>
+    </div>
+  </div>
+
+
+

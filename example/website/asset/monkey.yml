@@ -1,0 +1,22 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: monkey
+meta:
+  file: monkey.jpg
+  live: true
+  title: |-
+    Baby Monkey: "I'm Outta Here!"
+  hrefPrefix: /image/monkey
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 10
+    day: 22
+    hour: 17
+    minute: 15
+    second: 13
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

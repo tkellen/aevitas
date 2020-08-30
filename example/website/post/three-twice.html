@@ -1,0 +1,31 @@
+<!--
+kind: website
+group: content
+version: v1
+namespace: post
+name: three-twice
+meta:
+  live: true
+  publishAt:
+    year: 2018
+    month: 7
+    day: 3
+    hour: 1
+  title: Second Post Today
+  href: /%Y/%m/three-twice.html
+  renderWith: [html/template/v1/post/layout]
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/early-days
+  imports:
+  - name: image
+    selector: html/template/v1/core/linked-image
+  - name: featurePhoto
+    selector: asset/jpeg/v1/image/paved-road
+  - name: firstPostToday
+    selector: website/content/v1/post/three
+-->
+<p>Another post today!</p>
+{{ image featurePhoto }}
+<a href="{{ firstPostToday.HrefCanonical }}">first post today</a>
+

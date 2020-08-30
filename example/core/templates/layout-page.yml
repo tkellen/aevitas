@@ -1,0 +1,13 @@
+kind: html
+group: template
+version: v1
+namespace: page
+name: layout
+meta:
+  live: true
+  renderWith:
+  - html/template/v1/core/wrap-content
+  - html/template/v1/core/wrap-header-footer
+  - html/template/v1/core/layout
+body: |-
+  {{ yield }}

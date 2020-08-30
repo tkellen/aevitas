@@ -1,24 +1,21 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: topic
 name: even
 meta:
   live: true
-  titleBase: Even Numbers
+  title: Even Numbers
   description: Entries filed under the topic of "Even Numbers".
-  hrefBase: /topic/even
-relations:
-- selector: website/page/v1/section/numeric
-render:
+  href: /topic/even/index.html
+  renderWith: [html/template/v1/collection/layout]
+  relations:
+  - selector: website/content/v1/section/numeric
   children:
-  - selector: website/page/v1/post/*
-    matchIfRelatedTo:
-    - website/page/v1/topic/even
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/scoped
-    - html/template/v1/default/layout
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedTo: [website/content/v1/topic/even]
+    titlePrefix: Even Numbers
+    hrefPrefix: /topic/even
 body: |-
-  {{ .Meta.Description }}
+  <p>{{ .Meta.Description }}</p>

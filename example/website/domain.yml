@@ -1,24 +1,13 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: domain
 name: blog
 meta:
   live: true
-  titleBase: Test Blog
-  title: Home
+  title: Test Blog
   description: A sample blog that shows how to use this tool.
-  hrefBase: /
-render:
   children:
-  - selector: website/page/v1/collection/*
-    templates:
-    - html/template/v1/collection/layout
-    - html/template/v1/default/content
-    - html/template/v1/default/layout
-  - selector: website/page/v1/post/*
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/unscoped
-    - html/template/v1/default/layout
+  - selector: website/content/v1/collection/*
+    titlePrefix: Test Blog
+    hrefPrefix: /

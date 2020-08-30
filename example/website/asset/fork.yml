@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: fork
+meta:
+  file: fork.jpg
+  live: true
+  title: Fork
+  hrefPrefix: /image/fork
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2009
+    month: 08
+    day: 04
+    hour: 13
+    minute: 22
+    second: 19
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

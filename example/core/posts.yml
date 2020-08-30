@@ -1,0 +1,74 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: dates
+meta:
+  live: true
+  children:
+  - selector: website/content/v1/post/*
+  - selector: website/content/v1/date/*
+    matchIfRelatedTo: [website/content/v1/post/*]
+generateManifests:
+- loops:
+  - name: year
+    range: [2007, 2020]
+  template: |-
+    {
+      "kind": "website",
+      "group": "content",
+      "version": "v1",
+      "namespace": "date",
+      "name": "year-(( year ))",
+      "meta": {
+        "live": true,
+        "publishAt": {
+          "year": (( year ))
+        },
+        "title": "(( year ))",
+        "href": "/(( year ))/index.html",
+        "renderWith": ["html/template/v1/date/layout"],
+        "relations": [{
+          "selector": "website/content/v1/post/*",
+          "matchExpression": [
+            { "operator": "InYear", "values": [(( year ))] }
+          ]
+        }]
+      },
+      "spec": {
+        "body": "(( year ))"
+      }
+    }
+- loops:
+  - name: year
+    range: [2007, 2020]
+  - name: month
+    range: [1, 12]
+  template: |-
+    {
+      "kind": "website",
+      "group": "content",
+      "version": "v1",
+      "namespace": "date",
+      "name": "month-(( year ))-(( printf "%02d" month ))",
+      "meta": {
+        "live": true,
+        "publishAt": {
+          "year": (( year )),
+          "month": (( month ))
+        },
+        "title": "(( year ))-(( printf "%02d" month ))",
+        "href": "/(( year ))/(( printf "%02d" month ))/index.html",
+        "renderWith": ["html/template/v1/date/layout"],
+        "relations": [{
+          "selector": "website/content/v1/post/*",
+          "matchExpression": [
+            { "operator": "InYear", "values": [(( year ))] },
+            { "operator": "InMonth", "values": [(( month ))] }
+          ]
+        }]
+      },
+      "spec": {
+        "body": "(( month )), (( year ))"
+      }
+    }

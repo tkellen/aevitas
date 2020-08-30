@@ -1,0 +1,34 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: footer
+meta:
+  live: true
+  imports:
+  - name: listCanonical
+    selector: html/template/v1/core/list-canonical
+  - name: topics
+    selector: website/content/v1/topic/*
+  - name: eras
+    selector: website/content/v1/era/*
+  - name: sections
+    selector: website/content/v1/section/*
+body: |-
+  <div class="footer pin-to-bottom">
+    <div class="constrain-width">
+      <div class="area">
+        <h3>Topics</h3>
+        <ul>{{ listCanonical topics }}</ul>
+      </div>
+      <div class="area">
+        <h3>Eras</h3>
+        <ul>{{ listCanonical eras }}</ul>
+      </div>
+      <div class="area">
+        <h3>Sections</h3>
+        <ul>{{ listCanonical sections }}</ul>
+      </div>
+    </div>
+  </div>
+

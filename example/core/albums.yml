@@ -1,0 +1,30 @@
+kind: website
+group: content
+version: v1
+namespace: collection
+name: albums
+meta:
+  live: true
+  title: Photo Albums
+  description: All photo albums.
+  href: /album/index.html
+  renderWith: [html/template/v1/page/layout]
+  imports:
+  - name: image
+    selector: html/template/v1/core/image
+  children:
+  - name: albums
+    selector: website/content/v1/album/*
+    order: desc
+  - selector: asset/jpeg/v1/image/*
+    matchIfRelatedTo: [website/content/v1/post/*]
+body: |-
+  <div class="image-grid">
+  {{ range $index, $item := albums }}
+    {{ with $item }}
+      {{ if .Associated.featurePhoto }}
+        <div class="item"><a href="{{ .HrefCanonical }}">{{ image (call .Associated.featurePhoto) }}</a></div>
+      {{ end }}
+    {{ end}}
+  {{ end }}
+  </div>

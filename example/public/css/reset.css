@@ -1,40 +1,40 @@
 * {
-    margin: 0;
-    box-sizing: border-box;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 img, picture {
-    max-width: 100%;
-    height: auto;
-    /* get browser to use gpu */
-    transform: translate3d(0, 0, 0);
+  max-width: 100%;
+  height: auto;
+  /* get browser to use gpu */
+  transform: translate3d(0, 0, 0);
 }
 
 button {
-    padding: 0;
-    border-style: none;
-    background-color: transparent;
+  padding: 0;
+  border-style: none;
+  background-color: transparent;
 }
 
 fieldset {
-    padding: 0;
-    border-style: none;
+  padding: 0;
+  border-style: none;
 }
 
 iframe {
-    border-style: none;
+  border-style: none;
 }
 
 ol, ul {
-    padding: 0;
-    list-style: none;
+  padding: 0;
+  list-style: none;
 }
 
 table {
-    border-collapse: collapse;
-    border-spacing: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
 }
 
 th {
-    text-align: left;
+  text-align: left;
 }

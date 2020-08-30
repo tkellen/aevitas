@@ -1,0 +1,30 @@
+kind: html
+group: template
+version: v1
+namespace: collection
+name: layout
+meta:
+  live: true
+  renderWith:
+  - html/template/v1/core/wrap-content
+  - html/template/v1/core/wrap-nav
+  - html/template/v1/core/wrap-header-footer
+  - html/template/v1/core/layout
+  imports:
+  - name: title
+    selector: html/template/v1/core/title
+  - name: navTime
+    selector: html/template/v1/core/nav-time
+  - name: list
+    selector: html/template/v1/core/list
+body: |-
+ {{ title . }}
+ <hr>
+ {{ yield }}
+ <hr>
+ {{ if .Associated.entries }}
+   <ul class="styled">
+   {{ list (call .Associated.entries) }}
+   </ul>
+ {{ end }}
+ {{ navTime . }}

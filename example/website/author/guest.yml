@@ -1,22 +1,19 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: author
 name: guest
 meta:
   live: true
-  titleBase: Guest
+  title: Guest
   description: Entries authored by Guest.
-  hrefBase: /author/guest
-render:
+  href: /author/guest/index.html
+  renderWith: [html/template/v1/collection/layout]
   children:
-  - selector: website/page/v1/post/*
-    matchIfRelatedTo:
-    - website/page/v1/author/guest
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/scoped
-    - html/template/v1/default/layout
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedTo: [website/content/v1/author/guest]
+    titlePrefix: Guest
+    hrefPrefix: /author/guest
 body: |-
-  {{ .Meta.Description }}
+  <p>{{ .Meta.Description }}</p>

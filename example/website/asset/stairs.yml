@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: stairs
+meta:
+  file: stairs.jpg
+  live: true
+  title: Rome Subway Stairs
+  hrefPrefix: /image/stairs
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2009
+    month: 10
+    day: 03
+    hour: 2
+    minute: 09
+    second: 14
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

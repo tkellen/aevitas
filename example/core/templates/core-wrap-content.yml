@@ -1,0 +1,13 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: wrap-content
+meta:
+  live: true
+body: |-
+  <div class="margin">
+    <div class="constrain-width content">
+      {{ yield }}
+    </div>
+  </div>

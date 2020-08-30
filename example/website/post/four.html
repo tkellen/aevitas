@@ -1,0 +1,28 @@
+<!--
+kind: website
+group: content
+version: v1
+namespace: post
+name: four
+meta:
+  live: true
+  publishAt:
+    year: 2018
+    month: 7
+    day: 4
+  title: Post Number Four
+  href: /%Y/%m/four.html
+  renderWith: [html/template/v1/post/layout]
+  relations:
+  - selector: website/content/v1/author/tyler
+  - selector: website/content/v1/era/early-days
+  - selector: website/content/v1/topic/even
+  imports:
+  - name: image
+    selector: html/template/v1/core/linked-image
+  - name: featurePhoto
+    selector: asset/jpeg/v1/image/piggies
+-->
+<p>Post numero cuatro.</p>
+{{ image featurePhoto }}
+

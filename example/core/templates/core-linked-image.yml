@@ -1,0 +1,12 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: linked-image
+meta:
+  live: true
+  imports:
+  - name: image
+    selector: html/template/v1/core/image
+body: |-
+  <p><a href="{{ .HrefCanonical }}">{{ image . }}</a></p>

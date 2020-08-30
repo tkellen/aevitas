@@ -1,28 +1,25 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: section
 name: numeric
 meta:
   live: true
-  titleBase: Numeric
+  title: Numeric
   description: Entries categorized under the section of "Numeric".
-  hrefBase: /numeric
-relations:
-- selector: website/page/v1/post/*
-  matchIfRelatedTo:
-  - website/page/v1/topic/even
-  - website/page/v1/topic/odd
-  - website/page/v1/topic/prime
-render:
-  children:
-  - selector: website/page/v1/post/*
+  href: /section/numeric/index.html
+  renderWith: [html/template/v1/collection/layout]
+  relations:
+  - selector: website/content/v1/post/*
     matchIfRelatedTo:
-    - website/page/v1/section/numeric
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/scoped
-    - html/template/v1/default/layout
+    - website/content/v1/topic/even
+    - website/content/v1/topic/odd
+    - website/content/v1/topic/prime
+  children:
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedTo: [website/content/v1/section/numeric]
+    titlePrefix: Numeric
+    hrefPrefix: /section/numeric
 body: |-
-  {{ .Meta.Description }}
+  <p>{{ .Meta.Description }}</p>

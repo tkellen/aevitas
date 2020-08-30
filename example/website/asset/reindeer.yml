@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: reindeer
+meta:
+  file: reindeer.jpg
+  live: true
+  title: White Reindeer
+  hrefPrefix: /image/reindeer
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 07
+    day: 15
+    hour: 12
+    minute: 49
+    second: 24
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

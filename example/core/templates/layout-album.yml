@@ -1,0 +1,35 @@
+kind: html
+group: template
+version: v1
+namespace: album
+name: layout
+meta:
+  live: true
+  renderWith:
+  - html/template/v1/core/wrap-content
+  - html/template/v1/core/wrap-nav
+  - html/template/v1/core/wrap-header-footer
+  - html/template/v1/core/layout
+  imports:
+  - name: title
+    selector: html/template/v1/core/title
+  - name: navTime
+    selector: html/template/v1/core/nav-time
+  - name: image
+    selector: html/template/v1/core/linked-image
+  importsDynamic:
+  - name: images
+    selector: asset/jpeg/v1/image/*
+    matchIfRelatedToContext: true
+body: |-
+  {{ title . }}
+  <hr>
+  {{ if images }}
+  <div class="image-grid">
+  {{ range $index, $item := images }}
+    <div class="item">{{ image $item }}</div>
+  {{ end }}
+  </div>
+  {{ end }}
+  {{ navTime . }}
+

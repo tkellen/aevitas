@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: foliage
+meta:
+  file: foliage.jpg
+  live: true
+  title: Arctic Flowers & Ferns
+  hrefPrefix: /image/foliage
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 07
+    day: 14
+    hour: 12
+    minute: 43
+    second: 56
+spec:
+  widths: [240,420,600,820,1024,1280,1440]

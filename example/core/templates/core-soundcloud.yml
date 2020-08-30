@@ -1,0 +1,9 @@
+kind: html
+group: template
+version: v1
+namespace: core
+name: soundcloud
+meta:
+  live: true
+body: |-
+  {{ .Title }}

@@ -1,22 +1,19 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: era
 name: early-days
 meta:
   live: true
-  titleBase: Early Days
+  title: Early Days
   description: Entries categorized under the era of "Early Days".
-  hrefBase: /era/early-days
-render:
+  href: /era/early-days/index.html
+  renderWith: [html/template/v1/collection/layout]
   children:
-  - selector: website/page/v1/post/*
-    matchIfRelatedTo:
-    - website/page/v1/era/early-days
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/scoped
-    - html/template/v1/default/layout
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedTo: [website/content/v1/era/early-days]
+    titlePrefix: Early Days
+    hrefPrefix: /era/early-days
 body: |-
-  {{ .Meta.Description }}
+  <p>{{ .Meta.Description }}</p>

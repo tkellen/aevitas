@@ -1,22 +1,19 @@
 kind: website
-group: page
+group: content
 version: v1
 namespace: author
 name: tyler
 meta:
   live: true
-  titleBase: Tyler Kellen
+  title: Tyler Kellen
   description: Entries authored by Tyler Kellen.
-  hrefBase: /author/tyler
-render:
+  href: /author/tyler/index.html
+  renderWith: [html/template/v1/collection/layout]
   children:
-  - selector: website/page/v1/post/*
-    matchIfRelatedTo:
-    - website/page/v1/author/tyler
-    templates:
-    - html/template/v1/post/layout
-    - html/template/v1/default/content
-    - html/template/v1/nav/scoped
-    - html/template/v1/default/layout
+  - name: entries
+    selector: website/content/v1/post/*
+    matchIfRelatedTo: [website/content/v1/author/tyler]
+    titlePrefix: Tyler Kellen
+    hrefPrefix: /author/tyler
 body: |-
-  {{ .Meta.Description }}
+  <p>{{ .Meta.Description }}</p>

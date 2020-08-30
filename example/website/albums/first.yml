@@ -1,0 +1,25 @@
+kind: website
+group: content
+version: v1
+name: second
+namespace: album
+meta:
+  live: true
+  title: Second
+  href: /album/second/index.html
+  publishAt:
+    year: 2019
+    month: 07
+    day: 01
+  renderWith: [html/template/v1/album/layout]
+  relations:
+  - selector: asset/jpeg/v1/image/piggies
+  - selector: asset/jpeg/v1/image/reindeer
+  - selector: asset/jpeg/v1/image/shells
+  - selector: asset/jpeg/v1/image/sod-roof
+  - selector: asset/jpeg/v1/image/stairs
+  - selector: asset/jpeg/v1/image/the-end
+  - selector: asset/jpeg/v1/image/yak
+  imports:
+  - name: featurePhoto
+    selector: asset/jpeg/v1/image/the-end

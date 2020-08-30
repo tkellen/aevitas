@@ -1,0 +1,21 @@
+kind: asset
+group: jpeg
+version: v1
+namespace: image
+name: kiosk
+meta:
+  file: kiosk.jpg
+  live: true
+  title: KiOSK FoR...... TOURiST PEOPLE
+  hrefPrefix: /image/kiosk
+  href: index.html
+  renderWith: [html/template/v1/image/layout]
+  publishAt:
+    year: 2010
+    month: 02
+    day: 15
+    hour: 13
+    minute: 00
+    second: 34
+spec:
+  widths: [240,420,600,820,1024,1280,1440]
